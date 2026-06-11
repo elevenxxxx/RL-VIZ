@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Frozen Lake</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+        #game-container {
+            display: flex;
+            flex: 1;
+            margin: 0;
+            padding: 0;
+        }
+        #grid {
+            display: grid;
+            border: 2px solid #333;
+            grid-gap: 2px;
+            background-color: #88ccee;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .S { background-color: #aaffaa; }
+        .F { background-color: #ccffff; }
+        .H { background-color: #ff8888; }
+        .G { background-color: #ffff88; }
+        .player { border: 2px solid red; }
+        #controls {
+            width: 150px;
+            margin-left: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        button {
+            padding: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="grid"></div>
+        <div id="controls">
+            <button onclick="move('UP')">↑ Up</button>
+            <button onclick="move('DOWN')">↓ Down</button>
+            <button onclick="move('LEFT')">← Left</button>
+            <button onclick="move('RIGHT')">→ Right</button>
+        </div>
+    </div>
+
+    <script>
+        // === Frozen Lake Map ===
+        const map = [
+            "SFFFHFFFFHFFFFFF",
+            "FHFFFFHFFFHFFFFF",
+            "FFFHFFFFFHFFFHFF",
+            "HFFFFHFFFFFFFHFF",
+            "FFFFFHFFFHFFFFFF",
+            "FFHFFFFFHFFFHFFF",
+            "FFFFHFFFFFHFHFFF",
+            "HFFFFFFHFFFFFHFH",
+            "FFFFHFFFFFHFFFFF",
+            "FFFHFFFFFHFHFFFF",
+            "FFFFFHFFFFFHFHFF",
+            "HFFFFFHFHFFFFFFF",
+            "FFFFHFFFFFFHFFFF",
+            "FFHFFFFFHFFFFHFF",
+            "FFFFFHFFFFHFFFFF",
+            "FHFFFFHFFFFFFFHG"
+        ];
+
+        const nrow = map.length;
+        const ncol = map[0].length;
+
+        // === Player State ===
+        let player = { row: 0, col: 0 };
+
+        // === Grid Setup ===
+        const gridEl = document.getElementById("grid");
+        gridEl.style.gridTemplateRows = `repeat(${nrow}, 40px)`;
+        gridEl.style.gridTemplateColumns = `repeat(${ncol}, 40px)`;
+
+        const cells = [];
+        for (let r = 0; r < nrow; r++) {
+            cells[r] = [];
+            for (let c = 0; c < ncol; c++) {
+                const div = document.createElement("div");
+                div.classList.add("cell");
+                div.classList.add(map[r][c]);
+                div.textContent = map[r][c];
+                gridEl.appendChild(div);
+                cells[r][c] = div;
+            }
+        }
+
+        function render() {
+            // 清除玩家标记
+            for (let r = 0; r < nrow; r++) {
+                for (let c = 0; c < ncol; c++) {
+                    cells[r][c].classList.remove("player");
+                }
+            }
+            // 设置玩家位置
+            cells[player.row][player.col].classList.add("player");
+        }
+
+        function move(direction) {
+            let newRow = player.row;
+            let newCol = player.col;
+            if (direction === "UP") newRow = Math.max(0, player.row - 1);
+            if (direction === "DOWN") newRow = Math.min(nrow - 1, player.row + 1);
+            if (direction === "LEFT") newCol = Math.max(0, player.col - 1);
+            if (direction === "RIGHT") newCol = Math.min(ncol - 1, player.col + 1);
+
+            const tile = map[newRow][newCol];
+            if (tile !== 'H') {  // 洞不能踩
+                player.row = newRow;
+                player.col = newCol;
+            }
+
+            render();
+
+            if (tile === 'G') {
+                alert("You reached the goal!");
+            } else if (tile === 'H') {
+                alert("You fell into a hole!");
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
