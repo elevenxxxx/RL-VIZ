@@ -1,5 +1,5 @@
 import { EnemyAi } from "./enemy_ai.js";
-import { initMap, decode_action, num2rc, rc2num } from "./utils.js";
+import { initMap, decode_action, num2rc, rc2num, id2piece } from "./utils.js";
 // 棋子
 class Piece {
     constructor(r, c, t, p, id) {
@@ -70,15 +70,15 @@ class Board {
     move(piece, r, c) {
         const legal = this.getLegalMoves(piece);
         //  console.log(`${piece.p} ${piece.t} 可选位置:`, legal);
-        if (!legal.some(m => m.r === r && m.c === c)) return [false, 0];
+        if (!legal.some(m => m.r === r && m.c === c)) return [false, -1];
 
         const target = this.get(r, c);
-        if (target && target.p === piece.p) return [false, 0];
-       let is_eat = false;
+        if (target && target.p === piece.p) return [false, -1];
+        let is_eat = -1;
         if (target) {
             //console.log(`${target.t}被吃掉拉`);
             this.remove(r, c);
-            is_eat = true;
+            is_eat = target.id;
         }
 
         piece.r = r;
@@ -422,7 +422,7 @@ export class Game {
             alert("The turn is not black!")
             return null;
         }
-        this.reflect();
+        const [_, been_eat] = this.reflect();
         this.episode++;
 
         let truncated = false;
@@ -431,8 +431,67 @@ export class Game {
         }
         next_state = this.board.board2State();
         reward = 0;
+        if (been_eat >= 0) {
+            reward -= getEatReward(been_eat);
+        }
+        if (is_eat) {
+            reward += getEatReward(is_eat);
+        }
+        if (this.episode > 15 && this.episode < 50) reward -= 0.4;
+        if (this.episode >= 50) reward -= 0.3;
+        //判断局势
+        if (this.episode % 3 == 0) {
+            let com = 0;
+            for (let i = 1; i <= 4; i++) {
+                //我方士、相
+                if (next_state[i] == 90) {
+                    if (this.episode < 40) reward -= 0.5;
+                    else reward -= 0.3;
+                }
+                //敌方仕、象
+                if (next_state[i + 16] == 90) {
+                    if (this.episode < 40) reward += 0.5;
+                    else reward += 0.3;
+                }
+                //我方炮、马
+                if (next_state[i + 16] == 90) com--;
+                //敌方炮、马
+                if (next_state[i + 16] == 90) com++;
+            }
+            if (next_state[5] == 90) com -= 2;
+            if (next_state[6] == 90) com -= 2;
+            if (next_state[21] == 90) com += 2;
+            if (next_state[22] == 90) com += 2;
+            reward += com;
+        }
 
         return [next_state, reward, false, truncated];
+    }
+    getEatReward(id) {
+        if (id < 0) return 0;
+
+        let [color, piece] = id2piece(id);
+
+        const valueMap = {
+            "将": 10000,
+            "帅": 10000,
+
+            "车": 900,
+            "马": 450,
+            "炮": 450,
+
+            "相": 200,
+            "象": 200,
+            "仕": 200,
+            "士": 200,
+
+            "兵": 100,
+            "卒": 100
+        };
+
+        let base = valueMap[piece] || 0;
+
+        return base / 100.0;
     }
 
     afterMove() {
@@ -440,7 +499,8 @@ export class Game {
         const win = this.checkWin();
 
         if (win) {
-            alert(win + " win!");
+            if (this.render_mode == "render")
+                alert(win + " win!");
 
             this.reset();
             return;
@@ -481,7 +541,7 @@ export class Game {
         if (this.turn != "black") {
             console.log("error:turn is not black!")
             this.reset();
-            return;
+            return [false, false];
         }
         m_piece = this.board.pieces.filter(p => p.p === this.turn);
 
@@ -507,7 +567,7 @@ export class Game {
         }
         if (ok)
             this.afterMove();
-
+        return [ok, is_eat];
     }
 
     reset() {
