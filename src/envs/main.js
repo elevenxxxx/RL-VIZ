@@ -1,5 +1,5 @@
 import { Game } from "./env.js";
-import { piece2id, rc2num, num2rc } from "./utils.js";
+import { piece2id, rc2num, num2rc ,encode_action} from "./utils.js";
 import { Agent } from "./agent.js";
 
 const env = new Game();
@@ -45,7 +45,8 @@ function start() {
         }
     }
 }
-function train() {
+async function train() {
+    await agent.train();
     let action = now_action;
     let state=env.reset();
     let episode = 0;

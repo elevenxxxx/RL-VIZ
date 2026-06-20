@@ -1,11 +1,13 @@
 import { EnemyAi } from "./enemy_ai.js";
+import { initMap, decode_action, num2rc, rc2num } from "./utils.js";
 // 棋子
 class Piece {
-    constructor(r, c, t, p) {
+    constructor(r, c, t, p, id) {
         this.r = r;
         this.c = c;
         this.t = t;
         this.p = p;
+        this.id = id;
     }
 }
 
@@ -18,44 +20,47 @@ class Board {
 
     init() {
         this.pieces = [
-            new Piece(0, 4, "将", "black"),
-            new Piece(0, 3, "仕", "black"),
-            new Piece(0, 5, "仕", "black"),
-            new Piece(9, 2, "象", "black"),
-            new Piece(9, 6, "象", "black"),
-            new Piece(0, 0, "车", "black"),
-            new Piece(0, 8, "车", "black"),
-            new Piece(0, 1, "马", "black"),
-            new Piece(0, 7, "马", "black"),
-            new Piece(2, 1, "炮", "black"),
-            new Piece(2, 7, "炮", "black"),
-            new Piece(3, 0, "卒", "black"),
-            new Piece(3, 2, "卒", "black"),
-            new Piece(3, 4, "卒", "black"),
-            new Piece(3, 6, "卒", "black"),
-            new Piece(3, 8, "卒", "black"),
+            new Piece(0, 4, "将", "black", 16),
+            new Piece(0, 3, "仕", "black", 17),
+            new Piece(0, 5, "仕", "black", 18),
+            new Piece(0, 6, "象", "black", 19),
+            new Piece(0, 2, "象", "black", 20),
+            new Piece(0, 0, "车", "black", 21),
+            new Piece(0, 8, "车", "black", 22),
+            new Piece(0, 1, "马", "black", 23),
+            new Piece(0, 7, "马", "black", 24),
+            new Piece(2, 1, "炮", "black", 25),
+            new Piece(2, 7, "炮", "black", 26),
+            new Piece(3, 0, "卒", "black", 27),
+            new Piece(3, 2, "卒", "black", 28),
+            new Piece(3, 4, "卒", "black", 29),
+            new Piece(3, 6, "卒", "black", 30),
+            new Piece(3, 8, "卒", "black", 31),
 
-            new Piece(9, 4, "帅", "red"),
-            new Piece(9, 5, "士", "red"),
-            new Piece(9, 3, "士", "red"),
-            new Piece(0, 6, "相", "red"),
-            new Piece(0, 2, "相", "red"),
-            new Piece(9, 0, "车", "red"),
-            new Piece(9, 8, "车", "red"),
-            new Piece(9, 1, "马", "red"),
-            new Piece(9, 7, "马", "red"),
-            new Piece(7, 1, "炮", "red"),
-            new Piece(7, 7, "炮", "red"),
-            new Piece(6, 8, "兵", "red"),
-            new Piece(6, 6, "兵", "red"),
-            new Piece(6, 4, "兵", "red"),
-            new Piece(6, 2, "兵", "red"),
-            new Piece(6, 0, "兵", "red"),
+            new Piece(9, 4, "帅", "red", 0),
+            new Piece(9, 5, "士", "red", 1),
+            new Piece(9, 3, "士", "red", 2),
+            new Piece(9, 6, "相", "red", 3),
+            new Piece(9, 2, "相", "red", 4),
+            new Piece(9, 0, "车", "red", 5),
+            new Piece(9, 8, "车", "red", 6),
+            new Piece(9, 1, "马", "red", 7),
+            new Piece(9, 7, "马", "red", 8),
+            new Piece(7, 1, "炮", "red", 9),
+            new Piece(7, 7, "炮", "red", 10),
+            new Piece(6, 8, "兵", "red", 11),
+            new Piece(6, 6, "兵", "red", 12),
+            new Piece(6, 4, "兵", "red", 13),
+            new Piece(6, 2, "兵", "red", 14),
+            new Piece(6, 0, "兵", "red", 15),
         ];
     }
 
     get(r, c) {
         return this.pieces.find(p => p.r === r && p.c === c);
+    }
+    getPbyId(id) {
+        return this.pieces.find(p => p.id === id);
     }
 
     remove(r, c) {
@@ -65,18 +70,20 @@ class Board {
     move(piece, r, c) {
         const legal = this.getLegalMoves(piece);
         //  console.log(`${piece.p} ${piece.t} 可选位置:`, legal);
-        if (!legal.some(m => m.r === r && m.c === c)) return false;
+        if (!legal.some(m => m.r === r && m.c === c)) return [false, 0];
 
         const target = this.get(r, c);
-        if (target && target.p === piece.p) return false;
+        if (target && target.p === piece.p) return [false, 0];
+       let is_eat = false;
         if (target) {
             //console.log(`${target.t}被吃掉拉`);
             this.remove(r, c);
+            is_eat = true;
         }
 
         piece.r = r;
         piece.c = c;
-        return true;
+        return [true, is_eat];
     }
 
     // =======================
@@ -97,6 +104,14 @@ class Board {
             case "将": return this.king(p);
             default: return [];
         }
+    }
+
+    board2State() {
+        state = new Array(32).fill(90);
+        for (let p of this.pieces) {
+            state[p.id] = rc2num(p.r, p.c);
+        }
+        return state;
     }
 
     //车
@@ -321,11 +336,15 @@ export class Game {
         this.board = new Board();
         this.selected = null;
         this.turn = "red";
+        this.episode = 0;//回合
+        this.max_episode = 80;
 
         this.canvas = document.getElementById("board");
         this.ctx = this.canvas.getContext("2d");
 
         this.SIZE = 60;//棋盘格子大小，单位像素
+
+        this.render_mode = "render";
         this.initEvents();
         this.render();
         this.enemy_ai = new EnemyAi();
@@ -348,26 +367,72 @@ export class Game {
             if (!this.selected) {
                 if (p && p.p === "red") {
                     this.selected = p;
-                    this.render();
+                    if (this.render_mode == "render") {
+                        this.render();
+                    }
                 }
                 return;
             }
             //再次点击取消
             if (this.selected === p) {
                 this.selected = null;
-                this.render();
+                if (this.render_mode == "render") {
+                    this.render();
+                }
                 return;
             }
             //走子
-            const ok = this.board.move(this.selected, r, c);
+            const [ok, is_eat] = this.board.move(this.selected, r, c);
             // console.log(this.selected);
 
             this.selected = null;
-            this.render();
+            if (this.render_mode == "render") {
+                this.render();
+            }
 
-            if (ok)
+            if (ok) {
                 this.afterMove();
+                this.episode++;
+            }
         });
+    }
+
+    //我方步进（非点击）
+    step(actionIndex) {
+        action_list = decode_action(actionIndex);
+        let p = this.board.getPbyId(action_list[0]);
+        let { n_r, n_c } = num2rc(action_list[1]);
+        const [ok, is_eat] = this.board.move(p, n_r, n_c);
+
+        if (!ok) return null;//非法动作
+
+        if (this.render_mode == "render") {
+            this.render();
+        }
+
+        const win = this.checkWin();
+        if (win) {
+            this.reset();
+            return [initMap, 100, true, false];
+        }
+
+        this.turn = this.turn === "red" ? "black" : "red";
+        //敌方走子
+        if (this.turn !== "black") {
+            alert("The turn is not black!")
+            return null;
+        }
+        this.reflect();
+        this.episode++;
+
+        let truncated = false;
+        if (this.episode >= this.max_episode) {
+            truncated = true;
+        }
+        next_state = this.board.board2State();
+        reward = 0;
+
+        return [next_state, reward, false, truncated];
     }
 
     afterMove() {
@@ -384,7 +449,7 @@ export class Game {
         this.turn = this.turn === "red" ? "black" : "red";
         //敌方走子
         if (this.turn === "black")
-            setTimeout(() => this.step(), 300);
+            setTimeout(() => this.reflect(), 300);
     }
 
     // 胜负判断
@@ -411,32 +476,35 @@ export class Game {
         return this.turn === "red" ? "black" : "red";
     }
     //敌方AI步进
-    step(hander = "black") {
+    reflect() {
         let m_piece = [];
-        m_piece = this.board.pieces.filter(p => p.p === hander);
+        if (this.turn != "black") {
+            console.log("error:turn is not black!")
+            this.reset();
+            return;
+        }
+        m_piece = this.board.pieces.filter(p => p.p === this.turn);
 
         let moves = []
         let p = null
         let m = null
-        if (hander == "black") {
 
-            //接入敌方AI
-            //black_state=this.board.pieces;
-            //action=enemy_ai.step(black_state);
+        //接入敌方AI
+        //black_state=this.board.pieces;
+        //action=enemy_ai.step(black_state);
 
-            //随机选择一个棋子执行一个动作
-            //直到有路可走为止
-            while (moves.length === 0) {
-                p = m_piece[Math.floor(Math.random() * m_piece.length)];
-                moves = this.board.getLegalMoves(p);
-                m = moves[Math.floor(Math.random() * moves.length)];//{r,c}
-            }
-        }else if(hander == "red"){
-            //我方AI
+        //随机选择一个棋子执行一个动作
+        //直到有路可走为止
+        while (moves.length === 0) {
+            p = m_piece[Math.floor(Math.random() * m_piece.length)];
+            moves = this.board.getLegalMoves(p);
+            m = moves[Math.floor(Math.random() * moves.length)];//{r,c}
         }
 
-        const ok = this.board.move(p, m.r, m.c);
-        this.render();
+        const [ok, is_eat] = this.board.move(p, m.r, m.c);
+        if (this.render_mode == "render") {
+            this.render();
+        }
         if (ok)
             this.afterMove();
 
@@ -446,7 +514,12 @@ export class Game {
         this.board.init();
         this.selected = null;
         this.turn = "red";
-        this.render();
+        this.episode = 0;
+        if (this.render_mode == "render") {
+            this.render();
+        }
+
+        return initMap;
     }
 
     //画棋盘

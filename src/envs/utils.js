@@ -16,38 +16,38 @@ const BlackSoliderCandidates = new Array(45).fill(0).map((a, i) => 45 + i);
 
 //32位数组
 export const PieceCandidates = [
-  [85, 86, 84, 76, 77, 75, 67, 68, 66, 127],//红帅
-  [127, 86, 84, 76, 68, 66],//红士1-右
-  [127, 84, 86, 76, 66, 68],//红士2-左
-  [127, 87, 67, 71, 51, 83, 47, 63],//红相1-右
-  [127, 83, 67, 63, 47, 87, 51, 71],//红相2-左
-  [127, ...RedAllCandidates],//红车1 0-89
-  [127, ...RedAllCandidates],//红车2 0-89
-  [127, ...RedAllCandidates],//红马1 0-89
-  [127, ...RedAllCandidates],//红马2 0-89
-  [127, ...RedAllCandidates],//红炮1 0-89
-  [127, ...RedAllCandidates],//红炮2 0-89
-  [127, 62, 53, ...RedSoliderCandidates],//红兵5 -最右
-  [127, 60, 51, ...RedSoliderCandidates],//红兵4
-  [127, 58, 49, ...RedSoliderCandidates],//红兵3
-  [127, 56, 47, ...RedSoliderCandidates],//红兵2
-  [127, 54, 45, ...RedSoliderCandidates],//红兵1 -最左
-  [4, 3, 5, 13, 12, 14, 22, 21, 23, 127],//黑将
-  [127, 3, 5, 13, 21, 23],//黑仕1-左
-  [127, 5, 3, 13, 23, 21],//黑仕2-右
-  [127, 2, 22, 18, 38, 6, 42, 26],//黑象1-左
-  [127, 6, 22, 26, 42, 2, 38, 18],//黑象2-右
-  [127, ...BlackAllCandidates],//黑车1 0-89
-  [127, ...BlackAllCandidates],//黑车2 0-89
-  [127, ...BlackAllCandidates],//黑马1 0-89
-  [127, ...BlackAllCandidates],//黑马2 0-89
-  [127, ...BlackAllCandidates],//黑炮1 0-89
-  [127, ...BlackAllCandidates],//黑炮2 0-89
-  [127, 27, 36, ...BlackSoliderCandidates],//黑卒5 -最左
-  [127, 29, 38, ...BlackSoliderCandidates],//黑卒4
-  [127, 31, 40, ...BlackSoliderCandidates],//黑卒3
-  [127, 33, 42, ...BlackSoliderCandidates],//黑卒2
-  [127, 35, 44, ...BlackSoliderCandidates],//黑卒1 -最右
+  [85, 86, 84, 76, 77, 75, 67, 68, 66, 90],//红帅
+  [90, 86, 84, 76, 68, 66],//红士1-右
+  [90, 84, 86, 76, 66, 68],//红士2-左
+  [90, 87, 67, 71, 51, 83, 47, 63],//红相1-右
+  [90, 83, 67, 63, 47, 87, 51, 71],//红相2-左
+  [90, ...RedAllCandidates],//红车1 0-89
+  [90, ...RedAllCandidates],//红车2 0-89
+  [90, ...RedAllCandidates],//红马1 0-89
+  [90, ...RedAllCandidates],//红马2 0-89
+  [90, ...RedAllCandidates],//红炮1 0-89
+  [90, ...RedAllCandidates],//红炮2 0-89
+  [90, 62, 53, ...RedSoliderCandidates],//红兵5 -最右
+  [90, 60, 51, ...RedSoliderCandidates],//红兵4
+  [90, 58, 49, ...RedSoliderCandidates],//红兵3
+  [90, 56, 47, ...RedSoliderCandidates],//红兵2
+  [90, 54, 45, ...RedSoliderCandidates],//红兵1 -最左
+  [4, 3, 5, 13, 12, 14, 22, 21, 23, 90],//黑将
+  [90, 3, 5, 13, 21, 23],//黑仕1-左
+  [90, 5, 3, 13, 23, 21],//黑仕2-右
+  [90, 2, 22, 18, 38, 6, 42, 26],//黑象1-左
+  [90, 6, 22, 26, 42, 2, 38, 18],//黑象2-右
+  [90, ...BlackAllCandidates],//黑车1 0-89
+  [90, ...BlackAllCandidates],//黑车2 0-89
+  [90, ...BlackAllCandidates],//黑马1 0-89
+  [90, ...BlackAllCandidates],//黑马2 0-89
+  [90, ...BlackAllCandidates],//黑炮1 0-89
+  [90, ...BlackAllCandidates],//黑炮2 0-89
+  [90, 27, 36, ...BlackSoliderCandidates],//黑卒5 -最左
+  [90, 29, 38, ...BlackSoliderCandidates],//黑卒4
+  [90, 31, 40, ...BlackSoliderCandidates],//黑卒3
+  [90, 33, 42, ...BlackSoliderCandidates],//黑卒2
+  [90, 35, 44, ...BlackSoliderCandidates],//黑卒1 -最右
 ];
 export const initMap=[
   85,86,84,87,83,
@@ -62,7 +62,7 @@ export const validMap = (arr) => {
     validarr.fill(0);
 
     for (let item of arr) {
-        if (item === 127) continue;
+        if (item === 90) continue;
         if (validarr[item] === 1) {
             return false; // 重复位置
         }
