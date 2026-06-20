@@ -228,7 +228,7 @@ export function decoding(uint8) {
   return result;
 }
 
-const uint8 = encoding(initMap);
+const encoded = encoding(initMap);
 /*
 Uint8Array(19) [
    10, 73, 32, 144, 19, 74,  4,
@@ -236,11 +236,11 @@ Uint8Array(19) [
   163, 65,  8,  66, 16
 ]
 */
-//console.log(uint8);
-const base64 = btoa(String.fromCharCode(...uint8));
-//console.log(base64);
+//console.log(encoded);
+const base64_code = btoa(String.fromCharCode(...encoded));
+//console.log(base64_code);
 //CkkgkBNKBCEIQpIJIRCjQQhCEA==
-const decoded = decoding(uint8);
+const decoded = decoding(encoded);
 /*
 [
   85, 86, 84, 87, 83, 81, 89, 82, 88,
