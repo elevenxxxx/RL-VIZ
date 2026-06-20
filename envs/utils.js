@@ -15,7 +15,6 @@ const BlackSoliderCandidates = new Array(45).fill(0).map((a, i) => 45 + i);
 **/
 
 //32位数组
-
 export const PieceCandidates = [
   [85, 86, 84, 76, 77, 75, 67, 68, 66, 127],//红帅
   [127, 86, 84, 76, 68, 66],//红士1-右
@@ -44,11 +43,11 @@ export const PieceCandidates = [
   [127, ...BlackAllCandidates],//黑马2 0-89
   [127, ...BlackAllCandidates],//黑炮1 0-89
   [127, ...BlackAllCandidates],//黑炮2 0-89
-  [127, 27, 36, ...BlackSoliderCandidates],//黑兵5 -最左
-  [127, 29, 38, ...BlackSoliderCandidates],//黑兵4
-  [127, 31, 40, ...BlackSoliderCandidates],//黑兵3
-  [127, 33, 42, ...BlackSoliderCandidates],//黑兵2
-  [127, 35, 44, ...BlackSoliderCandidates],//黑兵1 -最右
+  [127, 27, 36, ...BlackSoliderCandidates],//黑卒5 -最左
+  [127, 29, 38, ...BlackSoliderCandidates],//黑卒4
+  [127, 31, 40, ...BlackSoliderCandidates],//黑卒3
+  [127, 33, 42, ...BlackSoliderCandidates],//黑卒2
+  [127, 35, 44, ...BlackSoliderCandidates],//黑卒1 -最右
 ];
 export const initMap=[
   85,86,84,87,83,
@@ -250,3 +249,180 @@ const decoded = decoding(encoded);
 ]
 */
 //console.log(decoded);
+
+
+export function rc2num(row, col) {
+    return row * 9 + col;
+}
+export function num2rc(num) {
+    return [Math.floor(num / 9), num % 9];
+}
+export function piece2id(flag, piece, num) {
+  // 红方
+  if (flag === 'red') {
+    switch (piece) {
+      case '帅':
+        return 0;
+
+      case '士':
+        // 红士：1-右(1), 2-左(2)
+        return num === 1 ? 1 : 2;
+
+      case '相':
+        // 红相：1-右, 2-左
+        return num === 1 ? 3 : 4;
+
+      case '车':
+        return num === 1 ? 5 : 6;
+
+      case '马':
+        return num === 1 ? 7 : 8;
+
+      case '炮':
+        return num === 1 ? 9 : 10;
+
+      case '兵':
+        // 红兵：5(最右) -> 11 ... 1(最左) -> 15
+        return 11 + (5 - num);
+
+      default:
+        return -1;
+    }
+  }
+
+  // 黑方
+  if (flag === 'black') {
+    switch (piece) {
+      case '将':
+        return 16;
+
+      case '仕':
+        // 黑仕：1左=17, 2右=18
+        return num === 1 ? 17 : 18;
+
+      case '象':
+        // 黑象：1左=19, 2右=20
+        return num === 1 ? 19 : 20;
+
+      case '车':
+        return num === 1 ? 21 : 22;
+
+      case '马':
+        return num === 1 ? 23 : 24;
+
+      case '炮':
+        return num === 1 ? 25 : 26;
+
+      case '卒':
+        // 黑卒：5最左=27 ... 1最右=31
+        return 27 + (5 - num);
+
+      default:
+        return -1;
+    }
+  }
+
+  return -1;
+}
+export function id2piece(id) {
+  // 红方
+  if (id === 0) return ['red', '帅', 0];
+
+  if (id === 1) return ['red', '士', 1];
+  if (id === 2) return ['red', '士', 2];
+
+  if (id === 3) return ['red', '相', 1];
+  if (id === 4) return ['red', '相', 2];
+
+  if (id === 5) return ['red', '车', 1];
+  if (id === 6) return ['red', '车', 2];
+
+  if (id === 7) return ['red', '马', 1];
+  if (id === 8) return ['red', '马', 2];
+
+  if (id === 9) return ['red', '炮', 1];
+  if (id === 10) return ['red', '炮', 2];
+
+  // 红兵 11~15
+  if (id >= 11 && id <= 15) {
+    return ['red', '兵', 5 - (id - 11)];
+  }
+
+  // 黑方
+  if (id === 16) return ['black', '将', 0];
+
+  if (id === 17) return ['black', '仕', 1];
+  if (id === 18) return ['black', '仕', 2];
+
+  if (id === 19) return ['black', '象', 1];
+  if (id === 20) return ['black', '象', 2];
+
+  if (id === 21) return ['black', '车', 1];
+  if (id === 22) return ['black', '车', 2];
+
+  if (id === 23) return ['black', '马', 1];
+  if (id === 24) return ['black', '马', 2];
+
+  if (id === 25) return ['black', '炮', 1];
+  if (id === 26) return ['black', '炮', 2];
+
+  // 黑卒 27~31
+  if (id >= 27 && id <= 31) {
+    return ['black', '卒', 5 - (id - 27)];
+  }
+
+  return null;
+}
+export function encode_action(action_list){
+  //action_list:[piece_id,action_id]
+  let actions=piece2actions[id2piece(action_list[0])[1]];
+  let offset=actions.indexOf(action_list[1]);
+  let basei=action_map3[action_list[0]];
+  return basei+offset;
+}
+//严格大于
+function upper_bound(arr, target) {
+  let l = 0, r = arr.length;
+
+  while (l < r) {
+    let m = (l + r) >> 1;
+    if (arr[m] <= target) l = m + 1;
+    else r = m;
+  }
+
+  return l;
+}
+export function decode_action(action){
+  let piece_id=action_map3.upper_bound(action)-1;//第一个大于action的索引
+  let offset=action-action_map3[piece_id];
+  let offset_action=piece2actions[id2piece(piece_id)[1]][offset];
+  return [piece_id,offset_action];
+}
+const piece2actions={
+  "帅":[0,1,-1,9,-9],
+  "将":[0,1,-1,9,-9],
+  "士":[7,10,-7,-10],
+  "仕":[7,10,-7,-10],
+  "相":[20,16,-16,-20],
+  "象":[20,16,-16,-20],
+  "兵":[1,-1,-9],
+  "卒":[1,-1,9],
+  "马":[17,19,11,7,-17,-19,-11,-7],
+  "车":[1,2,3,4,5,6,7,8,9,18,27,36,45,54,63,72,81,-1,-2,-3,-4,-5,-6,-7,-8,-9,-18,-27,-36,-45,-54,-63,-72,-81],
+  "炮":[0,1,2,3,4,5,6,7,8,9,18,27,36,45,54,63,72,81,-1,-2,-3,-4,-5,-6,-7,-8,-9,-18,-27,-36,-45,-54,-63,-72,-81]
+}
+const action_map_index=[
+  0,5,4,4,4,4,34,34,8,8,35,35,3,3,3,3,3,5,4,4,4,4,34,34,8,8,35,35,3,3,3,3,3
+]
+const action_map_index_fc=()=>{
+  let L=[];
+  for(let i=0;i<action_map_index.length;i++){
+    if(i==0){
+      L.push(action_map_index[i]);
+    }else{
+      L.push(L[-1]+action_map_index[i]);
+    }
+  }
+  return L;
+}
+const action_map3=action_map_index_fc();
