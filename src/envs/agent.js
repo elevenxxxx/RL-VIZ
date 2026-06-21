@@ -1,7 +1,7 @@
 import * as tf from "@tensorflow/tfjs";
-
-export class ActorNet {
-  constructor(stateDim=32, hiddenDim = 128, actionDim = 1) {
+import { encode_state } from "./utils.js";
+class ActorNet {
+  constructor(stateDim, hiddenDim = 128, actionDim = 1) {
     this.fc1 = tf.layers.dense({
       units: hiddenDim,
       activation: "relu",
@@ -21,7 +21,8 @@ export class ActorNet {
       const x = this.fc1.apply(state);
       const mean = this.mean.apply(x);
 
-      const logStd = this.logStd.clipByValue(-20, 2);
+      //const logStd = this.logStd.clipByValue(-20, 2);
+      const logStd = tf.clipByValue(this.logStd, -20, 2);
       const std = tf.exp(logStd);
 
       return { mean, std };
@@ -47,8 +48,8 @@ export class ActorNet {
     });
   }
 }
-export class CriticNet {
-  constructor(stateDim=32, hiddenDim = 128) {
+class CriticNet {
+  constructor(stateDim, hiddenDim = 128) {
     this.model = tf.sequential();
     this.model.add(tf.layers.dense({
       units: hiddenDim,
@@ -63,7 +64,7 @@ export class CriticNet {
   }
 }
 export class Agent {
-  constructor(env, stateDim=32, actionDim = 1) {
+  constructor(env, stateDim = 1024, actionDim = 1) {
     this.env = env;
 
     this.actor = new ActorNet(stateDim);
@@ -72,7 +73,7 @@ export class Agent {
     this.gamma = 0.99;
     this.lam = 0.95;
     this.clip = 0.2;
-    this.actionScale = 379;
+    this.actionScale = 187;
 
     this.actorOpt = tf.train.adam(3e-4);
     this.criticOpt = tf.train.adam(1e-3);
@@ -82,65 +83,87 @@ export class Agent {
   decodeAction(u) {
     const v = u.dataSync()[0];
     const a = Math.round(((v + 1) / 2) * this.actionScale);
-    return Math.max(0, Math.min(379, a));
+    return Math.max(0, Math.min(187, a));
   }
 
   async collectEpisode() {
     let state = this.env.reset();
     let done = false;
-
     const buffer = [];
 
-    while (!done) {
-      const s = tf.tensor([state]);
+    while (true) {
 
-      const { u, logProb } = this.actor.sampleAction(s);
-      const actionIndex = this.decodeAction(u);
+      let success = false;
+      let nextState, reward, terminated, truncated;
 
-      const { nextState, reward, terminated, truncated } = this.env.step(actionIndex);
+      let actionIndex, logProbValue;
+
+      while (!success) {
+
+        const s = tf.tensor(encode_state(state));
+
+        const { u, logProb } = this.actor.sampleAction(s);
+
+        actionIndex = this.decodeAction(u);
+        const action = this.env.ModifyAction(actionIndex);
+
+        ({ success, nextState, reward, terminated, truncated } =
+          this.env.step(action));
+
+        logProbValue = logProb.dataSync()[0];
+        tf.dispose([s, u, logProb]);
+      }
 
       buffer.push({
-        state,
-        action: u,
-        reward,
-        logProb,
-        nextState,
-        done: d ? 1 : 0,
+        state: encode_state(state),
+        action: actionIndex,
+        reward: reward,
+        logProb: logProbValue,
+        done: done ? 1 : 0,
       });
 
       state = nextState;
       done = terminated || truncated;
-
-      tf.dispose([s, u]);
+      if (done) break;
     }
 
     return buffer;
   }
 
   computeGAE(buffer) {
-    const values = buffer.map(b =>
-      this.critic.value(tf.tensor([b.state])).dataSync()[0]
-    );
+    //  const values = buffer.map(b =>
+    //   this.critic.value(tf.tensor([b.state])).dataSync()[0]
+    // );
+    const states = tf.tensor(buffer.map(b => b.state));
+    const values = this.critic.value(states).reshape([-1]).dataSync();
 
-    const nextValues = values.slice(1).concat([0]);
-
+    const advantages = new Array(buffer.length);
     let adv = 0;
-    const advantages = [];
 
     for (let i = buffer.length - 1; i >= 0; i--) {
-      const delta =
-        buffer[i].reward +
-        this.gamma * nextValues[i] * (1 - buffer[i].done) -
-        values[i];
+      const reward = buffer[i].reward;
+      const done = buffer[i].done;
 
-      adv = delta + this.gamma * this.lam * adv;
+      const v = values[i];
+      const vNext = (done || i === buffer.length - 1)
+        ? 0
+        : values[i + 1];
+      //TD差分公式
+      const delta =
+        reward +
+        this.gamma * vNext -
+        v;
+
+      adv =delta +this.gamma * this.lam * (1 - done) * adv;
+
       advantages[i] = adv;
     }
 
-    const mean = advantages.reduce((a, b) => a + b) / advantages.length;
+    const mean = advantages.reduce((a, b) => a + b, 0) / advantages.length;
+
     const std = Math.sqrt(
-      advantages.map(a => (a - mean) ** 2).reduce((a, b) => a + b) /
-        advantages.length
+      advantages.reduce((a, b) => a + (b - mean) ** 2, 0) /
+      advantages.length
     );
 
     return advantages.map(a => (a - mean) / (std + 1e-8));

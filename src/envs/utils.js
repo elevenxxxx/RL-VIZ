@@ -409,10 +409,13 @@ const piece2actions={
   "卒":[1,-1,9],
   "马":[17,19,11,7,-17,-19,-11,-7],
   "车":[1,2,3,4,5,6,7,8,9,18,27,36,45,54,63,72,81,-1,-2,-3,-4,-5,-6,-7,-8,-9,-18,-27,-36,-45,-54,-63,-72,-81],
-  "炮":[0,1,2,3,4,5,6,7,8,9,18,27,36,45,54,63,72,81,-1,-2,-3,-4,-5,-6,-7,-8,-9,-18,-27,-36,-45,-54,-63,-72,-81]
+  "炮":[1,2,3,4,5,6,7,8,9,18,27,36,45,54,63,72,81,-1,-2,-3,-4,-5,-6,-7,-8,-9,-18,-27,-36,-45,-54,-63,-72,-81]
 }
+const red_piece_type=['帅','士','相','车','马','炮','兵']
+const black_piece_type=['将','仕','象','车','马','炮','卒']
+//只允许移动红方
 const action_map_index=[
-  0,5,4,4,4,4,34,34,8,8,35,35,3,3,3,3,3,5,4,4,4,4,34,34,8,8,35,35,3,3,3,3,3
+  0,5,4,4,4,4,34,34,8,8,34,34,3,3,3,3,3
 ]
 const action_map_index_fc=()=>{
   let L=[];
@@ -426,3 +429,43 @@ const action_map_index_fc=()=>{
   return L;
 }
 const action_map3=action_map_index_fc();
+export function getXbyId(id){
+  return [action_map3[id],action_map3[id+1]-1];
+}
+export function getPieceTypeById(id){
+  let {color,piece,num}=id2piece(id);
+  let index=red_piece_type.indexOf(piece);
+  if(index==-1){
+    index=black_piece_type.indexOf(piece);
+  }
+  if(color=="black"){
+    index+=7;
+  }
+  return index;
+}
+//人工编码状态，输出更强的语义信息
+const H = 10;
+const W = 9;
+const C = 14;
+const SIZE = H * W * C;
+
+// 预分配（关键）
+const buffer = new Float32Array(SIZE);
+
+export function encode_state(state) {
+  buffer.fill(0);
+
+  for (let i = 0; i < state.length; i++) {
+    const pos = state[i];
+    if (pos === 90) continue;
+
+    const { r, c } = num2rc(pos);
+    const type = getPieceTypeById(i);
+
+    const idx = (r * W + c) * C + type;
+
+    buffer[idx] = 1;
+  }
+
+  return buffer;
+}

@@ -1,5 +1,5 @@
 import { EnemyAi } from "./enemy_ai.js";
-import { initMap, decode_action, num2rc, rc2num, id2piece } from "./utils.js";
+import { initMap, decode_action, num2rc, rc2num, id2piece, getXbyId } from "./utils.js";
 // 棋子
 class Piece {
     constructor(r, c, t, p, id) {
@@ -104,6 +104,39 @@ class Board {
             case "将": return this.king(p);
             default: return [];
         }
+    }
+
+    //检查是否飞将
+    CheckFly(){
+        let p1 = this.getPbyId(0);
+        let p2 = this.getPbyId(16);
+        for(let i=min(p1.r,p2.r);i<=max(p1.r,p2.r);i++){
+            if(this.get(i,p1.c)) return [false,p2.r,p2.c];//返回黑将的坐标
+        }
+        return [true,p2.r,p2.c];
+    }
+
+    //检查炮是否可以吃掉目标棋子
+    CheckPao(id, t_r, t_c) {
+        if (t_r > 9 || t_r < 0 || t_c > 8 || t_c < 0) return false;
+        let p = this.getPbyId(id);
+        if (p.t !== "炮") return false;
+        if (p.r == t_r) {
+            let flag = 0;
+            for (let i = min(p.c, t_c); i <= max(p.c, t_c); i++) {
+                if (this.get(t_r, i)) flag++;
+                if (flag > 1) return false;
+            }
+        } else if (p.c == t_c) {
+            let flag = 0;
+            for (let i = min(p.r, t_r); i <= max(p.r, t_r); i++) {
+                if (this.get(i, t_c)) flag++;
+                if (flag > 1) return false;
+            }
+        } else {
+            return false;
+        }
+        return true;
     }
 
     board2State() {
@@ -348,8 +381,43 @@ export class Game {
         this.initEvents();
         this.render();
         this.enemy_ai = new EnemyAi();
+        this.redIllegalX= [[0, 189]];//红方非法动作编号
+        this.redalive=188;//红方可行动动作集合和
+    }
+ removeX(l, r) {
+    const res = [];
+
+    for (let [L, R] of this.redIllegalX) {
+        if (R < l || L > r) {
+            res.push([L, R]);
+        } else {
+            if (L < l) res.push([L, l - 1]);
+            if (R > r) res.push([r + 1, R]);
+        }
     }
 
+    this.redIllegalX = res;
+    this.redalive-=(r-l+1);
+}
+//剩余可行动编号映射
+ModifyAction(a){
+return this.query(Math.round(a/188*this.redalive));
+}
+ query(S) {
+    let sum = 0;
+
+    for (let [l, r] of this.redIllegalX) {
+        let len = r - l + 1;
+
+        if (sum + len >= S) {
+            return l + (S - sum - 1);
+        }
+
+        sum += len;
+    }
+
+    return -1;
+}
     initEvents() {
         //我方步进
         this.canvas.addEventListener("click", (e) => {
@@ -398,13 +466,23 @@ export class Game {
     }
 
     //我方步进（非点击）
+    //[step_success,next_state,reward,terminated,truncated]
     step(actionIndex) {
         action_list = decode_action(actionIndex);
         let p = this.board.getPbyId(action_list[0]);
-        let { n_r, n_c } = num2rc(action_list[1]);
+        if (!p) return [false, initMap, 0, false, false];//棋子已阵亡
+        if (action_list[1] == 0) {
+            //飞将
+            if (p.id != 0) return [false, initMap, 0, false, false];
+            let { n_r, n_c } = this.board.CheckFly();
+        } else {
+            let now_num=rc2num(p.r,p.c);
+            let { n_r, n_c } = num2rc(now_num+action_list[1]);
+        }
+
         const [ok, is_eat] = this.board.move(p, n_r, n_c);
 
-        if (!ok) return null;//非法动作
+        if (!ok) return [false, initMap, 0, false, false];//非法动作
 
         if (this.render_mode == "render") {
             this.render();
@@ -413,14 +491,14 @@ export class Game {
         const win = this.checkWin();
         if (win) {
             this.reset();
-            return [initMap, 100, true, false];
+            return [true, initMap, 100, true, false];
         }
 
         this.turn = this.turn === "red" ? "black" : "red";
         //敌方走子
         if (this.turn !== "black") {
             alert("The turn is not black!")
-            return null;
+            return [false, initMap, 0, false, false];
         }
         const [_, been_eat] = this.reflect();
         this.episode++;
@@ -465,7 +543,11 @@ export class Game {
             reward += com;
         }
 
-        return [next_state, reward, false, truncated];
+        if(been_eat>=0){
+            this.removeX(getXbyId(been_eat));
+        }
+
+        return [true, next_state, reward, false, truncated];
     }
     getEatReward(id) {
         if (id < 0) return 0;
