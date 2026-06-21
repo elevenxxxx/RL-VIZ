@@ -76,7 +76,7 @@ class Board {
         if (target && target.p === piece.p) return [false, -1];
         let is_eat = -1;
         if (target) {
-            //console.log(`${target.t}被吃掉拉`);
+            //console.log(`我方${target.t}被吃掉拉`);
             this.remove(r, c);
             is_eat = target.id;
         }
@@ -107,13 +107,20 @@ class Board {
     }
 
     //检查是否飞将
-    CheckFly(){
-        let p1 = this.getPbyId(0);
-        let p2 = this.getPbyId(16);
-        for(let i=min(p1.r,p2.r);i<=max(p1.r,p2.r);i++){
-            if(this.get(i,p1.c)) return [false,p2.r,p2.c];//返回黑将的坐标
+    CheckFly() {
+        const p1 = this.getPbyId(0);
+        const p2 = this.getPbyId(16);
+        if (!p1 || !p2) return [false, -1, -1];
+
+        const startRow = Math.min(p1.r, p2.r);
+        const endRow = Math.max(p1.r, p2.r);
+
+        for (let i = startRow + 1; i < endRow; i++) {
+            if (this.get(i, p1.c)) {
+                return [false, p2.r, p2.c]; // 有阻挡，返回黑将坐标
+            }
         }
-        return [true,p2.r,p2.c];
+        return [true, p2.r, p2.c]; // 无阻挡
     }
 
     //检查炮是否可以吃掉目标棋子
@@ -140,7 +147,7 @@ class Board {
     }
 
     board2State() {
-        state = new Array(32).fill(90);
+        let state = new Array(32).fill(90);
         for (let p of this.pieces) {
             state[p.id] = rc2num(p.r, p.c);
         }
@@ -370,7 +377,7 @@ export class Game {
         this.selected = null;
         this.turn = "red";
         this.episode = 0;//回合
-        this.max_episode = 80;
+        this.max_episode = 100;
 
         this.canvas = document.getElementById("board");
         this.ctx = this.canvas.getContext("2d");
@@ -381,107 +388,144 @@ export class Game {
         this.initEvents();
         this.render();
         this.enemy_ai = new EnemyAi();
-        this.redIllegalX= [[0, 189]];//红方非法动作编号
-        this.redalive=188;//红方可行动动作集合和
+        this.redlegalX = [[0, 187]];//红方合法动作编号
+        this.redalive = 188;//红方可行动动作集合和
     }
- removeX(l, r) {
-    const res = [];
+    removeX(l, r) {
+        const res = [];
 
-    for (let [L, R] of this.redIllegalX) {
-        if (R < l || L > r) {
-            res.push([L, R]);
-        } else {
-            if (L < l) res.push([L, l - 1]);
-            if (R > r) res.push([r + 1, R]);
-        }
-    }
-
-    this.redIllegalX = res;
-    this.redalive-=(r-l+1);
-}
-//剩余可行动编号映射
-ModifyAction(a){
-return this.query(Math.round(a/188*this.redalive));
-}
- query(S) {
-    let sum = 0;
-
-    for (let [l, r] of this.redIllegalX) {
-        let len = r - l + 1;
-
-        if (sum + len >= S) {
-            return l + (S - sum - 1);
-        }
-
-        sum += len;
-    }
-
-    return -1;
-}
-    initEvents() {
-        //我方步进
-        this.canvas.addEventListener("click", (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            const c = Math.round(x / this.SIZE) - 1;
-            const r = Math.round(y / this.SIZE) - 1;
-
-            if (r < 0 || r > 9 || c < 0 || c > 8) return;
-
-            const p = this.board.get(r, c);
-            //点击选子
-            if (!this.selected) {
-                if (p && p.p === "red") {
-                    this.selected = p;
-                    if (this.render_mode == "render") {
-                        this.render();
-                    }
-                }
-                return;
+        for (let [L, R] of this.redlegalX) {
+            if (R < l || L > r) {
+                //区间外
+                res.push([L, R]);
+                //console.log(`res push ${L},${R}`);
+            } else {
+                if (L < l) res.push([L, l - 1]);
+                //console.log(`res push ${L},${l - 1}`);
+                if (R > r) res.push([r + 1, R]);
+                //console.log(`res push ${r + 1},${R}`);
             }
-            //再次点击取消
-            if (this.selected === p) {
-                this.selected = null;
+        }
+
+        this.redlegalX = res;
+        this.redalive -= (r - l + 1);
+    }
+    //剩余可行动编号映射
+    ModifyAction(a) {
+        return this.query(Math.max(Math.round((a + 1) / 188 * this.redalive) - 1, 0));
+    }
+    query(S) {
+        //console.log("S", S);
+        S++;//0-187=>1-188
+        // console.log("this.redalive", this.redalive);
+        // console.log("this.redlegalX", this.redlegalX);
+        let sum = 0;
+
+        for (let [l, r] of this.redlegalX) {
+            let len = r - l + 1;
+            //console.log("[l,r]", l, r);
+            if (sum + len >= S) {
+                return l + (S - sum - 1);
+            }
+
+            sum += len;
+        }
+
+        console.log(`Fail to find legal action,S:${S},redalive:${this.redalive},redlegalX:${this.redlegalX}`);
+        return -1;
+    }
+
+    //我方步进
+    PlayerClick(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const c = Math.round(x / this.SIZE) - 1;
+        const r = Math.round(y / this.SIZE) - 1;
+
+        if (r < 0 || r > 9 || c < 0 || c > 8) return;
+
+        const p = this.board.get(r, c);
+        //点击选子
+        if (!this.selected) {
+            if (p && p.p === "red") {
+                this.selected = p;
                 if (this.render_mode == "render") {
                     this.render();
                 }
-                return;
             }
-            //走子
-            const [ok, is_eat] = this.board.move(this.selected, r, c);
-            // console.log(this.selected);
-
+            return;
+        }
+        //再次点击取消
+        if (this.selected === p) {
             this.selected = null;
             if (this.render_mode == "render") {
                 this.render();
             }
+            return;
+        }
+        //走子
+        const [ok, is_eat] = this.board.move(this.selected, r, c);
+        // console.log(this.selected);
 
-            if (ok) {
-                this.afterMove();
-                this.episode++;
+        this.selected = null;
+        if (this.render_mode == "render") {
+            this.render();
+        }
+
+        if (ok) {
+            const win = this.checkWin();
+
+            if (win) {
+                if (this.render_mode == "render")
+                    console.info(win + " win!");
+
+                this.reset();
+                return;
             }
-        });
+
+            this.turn = this.turn === "red" ? "black" : "red";
+            //敌方走子
+            if (this.turn === "black")
+                setTimeout(() => this.reflect(), 300);
+            this.episode++;
+        }
+    }
+    initEvents() {
+        this.canvas.addEventListener("click", (e) => this.PlayerClick(e));
     }
 
     //我方步进（非点击）
     //[step_success,next_state,reward,terminated,truncated]
     step(actionIndex) {
-        action_list = decode_action(actionIndex);
+        let action_list = decode_action(actionIndex);
+        //console.log("env_step:", action_list);
         let p = this.board.getPbyId(action_list[0]);
         if (!p) return [false, initMap, 0, false, false];//棋子已阵亡
+
+        let n_r, n_c;
+
         if (action_list[1] == 0) {
-            //飞将
             if (p.id != 0) return [false, initMap, 0, false, false];
-            let { n_r, n_c } = this.board.CheckFly();
+            //飞将
+            let { is_fly, n_r, n_c } = this.board.CheckFly();
+            if (!is_fly) return [false, initMap, 0, false, false];
+
         } else {
-            let now_num=rc2num(p.r,p.c);
-            let { n_r, n_c } = num2rc(now_num+action_list[1]);
+            let now_num = rc2num(p.r, p.c);
+            let moved_num = now_num + action_list[1];
+            //超出边界
+            if (moved_num < 0 || moved_num > 89) {
+                console.log("移动超出边界！");
+                return [false, initMap, 0, false, false];
+            }
+            [n_r, n_c] = num2rc(moved_num);
+
         }
-
+        // console.log("try to move:", p, n_r, n_c);
         const [ok, is_eat] = this.board.move(p, n_r, n_c);
-
+        // console.log("我方移动结果:", ok, is_eat);
         if (!ok) return [false, initMap, 0, false, false];//非法动作
 
         if (this.render_mode == "render") {
@@ -491,29 +535,39 @@ return this.query(Math.round(a/188*this.redalive));
         const win = this.checkWin();
         if (win) {
             this.reset();
-            return [true, initMap, 100, true, false];
+            if (win === "red") {
+                console.info("red win!");
+                return [true, initMap, 100, true, false];
+            }
+            if (win === "black") {
+                console.info("black win!");
+                return [true, initMap, -100, true, false];
+            }
+            console.error("checkWin return unknown:", win);
+            return [false, initMap, 0, false, false];
         }
 
         this.turn = this.turn === "red" ? "black" : "red";
         //敌方走子
         if (this.turn !== "black") {
-            alert("The turn is not black!")
+            console.error("The turn is not black!")
             return [false, initMap, 0, false, false];
         }
         const [_, been_eat] = this.reflect();
         this.episode++;
+        // console.log("敌方吃子:", been_eat);
 
         let truncated = false;
         if (this.episode >= this.max_episode) {
             truncated = true;
         }
-        next_state = this.board.board2State();
-        reward = 0;
+        let next_state = this.board.board2State();
+        let reward = 0;
         if (been_eat >= 0) {
-            reward -= getEatReward(been_eat);
+            reward -= this.getEatReward(been_eat);
         }
         if (is_eat) {
-            reward += getEatReward(is_eat);
+            reward += this.getEatReward(is_eat);
         }
         if (this.episode > 15 && this.episode < 50) reward -= 0.4;
         if (this.episode >= 50) reward -= 0.3;
@@ -543,8 +597,14 @@ return this.query(Math.round(a/188*this.redalive));
             reward += com;
         }
 
-        if(been_eat>=0){
-            this.removeX(getXbyId(been_eat));
+        console.log(`回合${this.episode},reward:${reward}`);
+
+        if (been_eat >= 0) {
+            //console.log(`剩下区间长度:${this.redalive} 剩余合法区间： ${this.redlegalX}`);
+            let In = getXbyId(been_eat);
+            console.warn(`try to remove ${been_eat} Interval:`, In);
+            this.removeX(In[0], In[1]);
+            console.warn(`剩下区间长度:${this.redalive} 剩余合法区间： ${this.redlegalX}`);
         }
 
         return [true, next_state, reward, false, truncated];
@@ -574,24 +634,6 @@ return this.query(Math.round(a/188*this.redalive));
         let base = valueMap[piece] || 0;
 
         return base / 100.0;
-    }
-
-    afterMove() {
-
-        const win = this.checkWin();
-
-        if (win) {
-            if (this.render_mode == "render")
-                alert(win + " win!");
-
-            this.reset();
-            return;
-        }
-
-        this.turn = this.turn === "red" ? "black" : "red";
-        //敌方走子
-        if (this.turn === "black")
-            setTimeout(() => this.reflect(), 300);
     }
 
     // 胜负判断
@@ -647,8 +689,18 @@ return this.query(Math.round(a/188*this.redalive));
         if (this.render_mode == "render") {
             this.render();
         }
-        if (ok)
-            this.afterMove();
+        if (ok) {
+            const win = this.checkWin();
+            this.turn = this.turn === "red" ? "black" : "red";
+            if (win) {
+                if (this.render_mode == "render")
+                    console.info(win + " win!");
+
+                this.reset();
+                return [true, this.turn === "red" ? 0 : 16];
+            }
+        }
+
         return [ok, is_eat];
     }
 
@@ -657,6 +709,8 @@ return this.query(Math.round(a/188*this.redalive));
         this.selected = null;
         this.turn = "red";
         this.episode = 0;
+        this.redalive = 188;
+        this.redlegalX = [[0, 187]];
         if (this.render_mode == "render") {
             this.render();
         }

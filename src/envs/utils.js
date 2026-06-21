@@ -49,27 +49,27 @@ export const PieceCandidates = [
   [90, 33, 42, ...BlackSoliderCandidates],//黑卒2
   [90, 35, 44, ...BlackSoliderCandidates],//黑卒1 -最右
 ];
-export const initMap=[
-  85,86,84,87,83,
-  81,89,82,88,64,70,
-  62,60,58,56,54,
-  4,3,5,2,6,
-  0,8,1,7,19,25,
-  27,29,31,33,35
+export const initMap = [
+  85, 86, 84, 87, 83,
+  81, 89, 82, 88, 64, 70,
+  62, 60, 58, 56, 54,
+  4, 3, 5, 2, 6,
+  0, 8, 1, 7, 19, 25,
+  27, 29, 31, 33, 35
 ];
-const validarr=new Array(90).fill(0);
+const validarr = new Array(90).fill(0);
 export const validMap = (arr) => {
-    validarr.fill(0);
+  validarr.fill(0);
 
-    for (let item of arr) {
-        if (item === 90) continue;
-        if (validarr[item] === 1) {
-            return false; // 重复位置
-        }
-        validarr[item] = 1;
+  for (let item of arr) {
+    if (item === 90) continue;
+    if (validarr[item] === 1) {
+      return false; // 重复位置
     }
+    validarr[item] = 1;
+  }
 
-    return true;
+  return true;
 };
 
 const ceilLog2Map = new Map([
@@ -128,7 +128,7 @@ function concatFlexibleBits(current, offset, candidateIndex, candidateLength) {
   }
   let newCurrent = current;
   let newOffset = offset;
-  const array= [];
+  const array = [];
   let newUint8;
   if (candidateIndex < last) {
     [newCurrent, newOffset, newUint8] = concatBits(newCurrent, newOffset, candidateIndex, floorLog);
@@ -252,10 +252,10 @@ const decoded = decoding(encoded);
 
 
 export function rc2num(row, col) {
-    return row * 9 + col;
+  return row * 9 + col;
 }
 export function num2rc(num) {
-    return [Math.floor(num / 9), num % 9];
+  return [Math.floor(num / 9), num % 9];
 }
 export function piece2id(flag, piece, num) {
   // 红方
@@ -373,12 +373,12 @@ export function id2piece(id) {
 
   return null;
 }
-export function encode_action(action_list){
+export function encode_action(action_list) {
   //action_list:[piece_id,action_id]
-  let actions=piece2actions[id2piece(action_list[0])[1]];
-  let offset=actions.indexOf(action_list[1]);
-  let basei=action_map3[action_list[0]];
-  return basei+offset;
+  let actions = piece2actions[id2piece(action_list[0])[1]];
+  let offset = actions.indexOf(action_list[1]);
+  let basei = action_map3[action_list[0]];
+  return basei + offset;
 }
 //严格大于
 function upper_bound(arr, target) {
@@ -392,54 +392,58 @@ function upper_bound(arr, target) {
 
   return l;
 }
-export function decode_action(action){
-  let piece_id=action_map3.upper_bound(action)-1;//第一个大于action的索引
-  let offset=action-action_map3[piece_id];
-  let offset_action=piece2actions[id2piece(piece_id)[1]][offset];
-  return [piece_id,offset_action];
+export function decode_action(action) {
+  // console.log("action_map3:", action_map3);
+  // console.log("target_decode:", action);
+  let piece_id = upper_bound(action_map3, action) - 1;//第一个大于action的索引
+  //console.log("piece_id:", piece_id);
+  let offset = action - action_map3[piece_id];
+  let offset_action = piece2actions[id2piece(piece_id)[1]][offset];
+  return [piece_id, offset_action];
 }
-const piece2actions={
-  "帅":[0,1,-1,9,-9],
-  "将":[0,1,-1,9,-9],
-  "士":[7,10,-7,-10],
-  "仕":[7,10,-7,-10],
-  "相":[20,16,-16,-20],
-  "象":[20,16,-16,-20],
-  "兵":[1,-1,-9],
-  "卒":[1,-1,9],
-  "马":[17,19,11,7,-17,-19,-11,-7],
-  "车":[1,2,3,4,5,6,7,8,9,18,27,36,45,54,63,72,81,-1,-2,-3,-4,-5,-6,-7,-8,-9,-18,-27,-36,-45,-54,-63,-72,-81],
-  "炮":[1,2,3,4,5,6,7,8,9,18,27,36,45,54,63,72,81,-1,-2,-3,-4,-5,-6,-7,-8,-9,-18,-27,-36,-45,-54,-63,-72,-81]
+const piece2actions = {
+  "帅": [0, 1, -1, 9, -9],
+  "将": [0, 1, -1, 9, -9],
+  "士": [8, 10, -8, -10],
+  "仕": [8, 10, -8, -10],
+  "相": [20, 16, -16, -20],
+  "象": [20, 16, -16, -20],
+  "兵": [1, -1, -9],
+  "卒": [1, -1, 9],
+  "马": [17, 19, 11, 7, -17, -19, -11, -7],
+  "车": [1, 2, 3, 4, 5, 6, 7, 8, 9, 18, 27, 36, 45, 54, 63, 72, 81, -1, -2, -3, -4, -5, -6, -7, -8, -9, -18, -27, -36, -45, -54, -63, -72, -81],
+  "炮": [1, 2, 3, 4, 5, 6, 7, 8, 9, 18, 27, 36, 45, 54, 63, 72, 81, -1, -2, -3, -4, -5, -6, -7, -8, -9, -18, -27, -36, -45, -54, -63, -72, -81]
 }
-const red_piece_type=['帅','士','相','车','马','炮','兵']
-const black_piece_type=['将','仕','象','车','马','炮','卒']
+const red_piece_type = ['帅', '士', '相', '车', '马', '炮', '兵']
+const black_piece_type = ['将', '仕', '象', '车', '马', '炮', '卒']
 //只允许移动红方
-const action_map_index=[
-  0,5,4,4,4,4,34,34,8,8,34,34,3,3,3,3,3
+const action_map_index = [
+  0, 5, 4, 4, 4, 4, 34, 34, 8, 8, 34, 34, 3, 3, 3, 3, 3
 ]
-const action_map_index_fc=()=>{
-  let L=[];
-  for(let i=0;i<action_map_index.length;i++){
-    if(i==0){
-      L.push(action_map_index[i]);
-    }else{
-      L.push(L[-1]+action_map_index[i]);
-    }
+const action_map_index_fc = () => {
+  let L = [];
+  let sum = 0;
+
+  for (let i = 0; i < action_map_index.length; i++) {
+    sum += action_map_index[i];
+    L.push(sum);
   }
+
   return L;
+};
+const action_map3 = action_map_index_fc();
+
+export function getXbyId(id) {
+  return [action_map3[id], action_map3[id + 1] - 1];
 }
-const action_map3=action_map_index_fc();
-export function getXbyId(id){
-  return [action_map3[id],action_map3[id+1]-1];
-}
-export function getPieceTypeById(id){
-  let {color,piece,num}=id2piece(id);
-  let index=red_piece_type.indexOf(piece);
-  if(index==-1){
-    index=black_piece_type.indexOf(piece);
+export function getPieceTypeById(id) {
+  let { color, piece, num } = id2piece(id);
+  let index = red_piece_type.indexOf(piece);
+  if (index == -1) {
+    index = black_piece_type.indexOf(piece);
   }
-  if(color=="black"){
-    index+=7;
+  if (color == "black") {
+    index += 7;
   }
   return index;
 }
