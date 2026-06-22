@@ -6,23 +6,23 @@ import { drawlineGraph } from "./graph.js";
 const env = new Game();
 let agent = new Agent(env);
 
-function reset() {
+export function reset() {
     env.reset();
 }
 
-async function train() {
+export async function train() {
     await agent.train();
 }
-async function test() {
+export async function test() {
     await agent.test();
 }
-async function load() {
+export async function load() {
 
 }
-async function save() {
+export async function save() {
 
 }
-function drawGraph() {
+export function drawGraph() {
     let history = [];
     for (let i = 0; i < 800; i++) {
         history.push({
@@ -37,11 +37,11 @@ function drawGraph() {
     }
     drawlineGraph(history);
 }
-reset();
-// 挂到全局
-window.reset = reset;
-window.train = train;
-window.test = test;
-window.load = load;
-window.save = save;
-window.drawGraph = drawGraph;
+// reset();
+// // 挂到全局
+// window.reset = reset;
+// window.train = train;
+// window.test = test;
+// window.load = load;
+// window.save = save;
+// window.drawGraph = drawGraph;

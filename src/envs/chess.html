@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>Chinese Chess RL Environment</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-    <script type="module" src="./main.js"></script>
+    <script type="module" src="./ui.js"></script>
     <style>
         body {
             margin: 0;
@@ -70,12 +70,12 @@
     </div>
 
     <div id="controls">
-        <button onclick="reset()">重置</button>
-        <button onclick="train()">训练模型</button>
-        <button onclick="test()">评估模型</button>
-        <button onclick="load()">加载模型</button>
-        <button onclick="save()">保存模型</button>
-        <button onclick="drawGraph()">测试绘图</button>
+        <button id="resetBtn">重置</button>
+        <button id="trainBtn">训练模型</button>
+        <button id="testBtn">评估模型</button>
+        <button id="loadBtn">加载模型</button>
+        <button id="saveBtn">保存模型</button>
+        <button id="drawGraphBtn">测试绘图</button>
     </div>
 
 </div>
@@ -83,8 +83,14 @@
     <div id="graph-container"></div>
 </div>
 
-<script>
-    
+<script type="module">
+    import { reset, train, test, load, save, drawGraph } from "./ui.js";
+    document.getElementById('resetBtn').addEventListener('click', reset);
+    document.getElementById('trainBtn').addEventListener('click', train);
+    document.getElementById('testBtn').addEventListener('click', test);
+    document.getElementById('loadBtn').addEventListener('click', load);
+    document.getElementById('saveBtn').addEventListener('click', save);
+    document.getElementById('drawGraphBtn').addEventListener('click', drawGraph);
 </script>
 
 </body>
