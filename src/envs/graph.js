@@ -77,13 +77,7 @@ export function drawlineGraph(history) {
                 yAxisIndex: 1,
                 data: history.map(x => x.lossCritic)
             },
-            {
-                name: "KL",
-                type: "line",
-                smooth: true,
-                yAxisIndex: 1,
-                data: history.map(x => x.kl)
-            },
+
             {
                 name: "AdvMean",
                 type: "line",

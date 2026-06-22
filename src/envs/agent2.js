@@ -36,84 +36,20 @@ class ActorNet {
             //return logits;
         });
     }
-
-    sampleAction_Gaussian(state) {
-        return tf.tidy(() => {
-            const { mean, std } = this.forward(state);
-
-            const eps = tf.randomNormal(mean.shape);
-            const u_raw = tf.add(mean, tf.mul(std, eps));
-            const u = tf.tanh(u_raw);
-            // log_prob（简化版）
-            // const logProb = tf.sum(
-            //   tf.sub(
-            //     tf.log(tf.div(1, tf.mul(std, tf.sqrt(2 * Math.PI)))),
-            //     tf.div(tf.square(tf.sub(u, mean)), tf.mul(2, tf.square(std)))
-            //   )
-            // );
-            //Jacobian修正
-            const logProb = tf.log(u_raw) - tf.log(1 - tf.square(u));
-            return { u, logProb };
-        });
-    }
     //Categorical policy
     sampleAction(state) {
         return tf.tidy(() => {
-            // const logits = this.forward(state);
-            // if (logits.dataSync().some(val => isNaN(val))) {
-            //   console.log("logits存在NaN值");
-            // }
-            // if (logits.dataSync().every(val => val === 0)) {
-            //   console.log("logits为全0");
-            // }
             const { mean, std } = this.forward(state);
-            // console.log("mean", mean.dataSync()[0]);
-            // console.log("std", std.dataSync()[0]);
-
             const u = tf.randomNormal(mean.shape, mean.dataSync()[0], std.dataSync()[0]);
-            //console.log("u", u.dataSync()[0]);
             const z = u.sub(mean).div(std);
-            //console.log("z", z.dataSync());
             const logProbNormal = tf.scalar(-0.5).mul(z.square())
                 .sub(tf.scalar(0.5).mul(tf.log(tf.scalar(2 * Math.PI))))
                 .sub(tf.log(std));
-            //console.log("logProbNormal", logProbNormal.dataSync());
-
             const tanh_u = tf.tanh(u);
-            //console.log("tanh_u", tanh_u.dataSync());
             const correction = tf.log(tf.scalar(1).sub(tanh_u.square()).add(tf.scalar(1e-6)));
-            //console.log("correction", correction.dataSync());
-            // 最终log概率（在最后一维求和）
             const logProb = logProbNormal.sub(correction).sum(-1);
-            //console.log("logProb", logProb.dataSync());
             const a = tf.mul(tf.abs(tanh_u), this.actionScale);
-            //console.log("a", a.dataSync());
-            // 返回动作和对数概率
-            // console.log("logProb", logProb.dataSync()[0]);
-            // console.log("a", a.dataSync()[0]);
             return { u_continuous: a, logProb: logProb };
-            // const probs = tf.softmax(logits);
-            // const dist = tf.randomUniform(probs.shape);
-            // const dist = tf.clipByValue(
-            //   tf.randomUniform(probs.shape),
-            //   1e-7,
-            //   1 - 1e-7
-            // );//裁剪 避免趋近于0或者1
-
-            // Gumbel-Max trick（更稳定）
-            // const gumbel = tf.neg(tf.log(tf.neg(tf.log(dist))));
-            //const y = tf.add(tf.log(probs), gumbel);
-
-            //const u = tf.argMax(y, -1);
-            // const u = tf.multinomial(logits, 1).squeeze();  // 移除尺寸为1的维度
-            // logProb = log π(a|s)
-            // const logProbs = tf.logSoftmax(logits);  // 直接计算 log 概率
-            // console.log("logProbs", logProbs.dataSync());
-            //const logProb = tf.gather(logProbs, u, 1);  // 取对应动作的 log 概率
-            // const logProb = tf.clipByValue(logProb2, -20, 0); // log概率通常在 -20 ~ 0
-            // const logProb = tf.log(tf.gather(probs, u, 1).add(1e-8));
-            //  console.log("logProb", logProb2.dataSync(), "logProbClipped", logProb.dataSync());
-            //return { u, logProb };
         });
     }
     sampleDetermineAction(state) {
@@ -321,6 +257,7 @@ export class Agent {
         metrics.lossActor = loss.dataSync()[0];
 
         // ===== Critic update =====
+
         const returns = tf.add(adv, old_V);
         const targets = returns.clone();
         // 更新 Critic
@@ -328,8 +265,22 @@ export class Agent {
             const values = this.critic.value(states).reshape([-1]);
             return tf.losses.meanSquaredError(targets, values);
         }, true);
+
         metrics.lossCritic = closs.dataSync()[0];
 
+        this.critic.model.layers.forEach((layer, index) => {
+            const weights = layer.getWeights();
+            if (weights.length > 0) {
+                let totalSum = 0;
+                let totalCount = 0;
+                weights.forEach((weight) => {
+                    const data = weight.dataSync();
+                    totalSum += data.reduce((a, b) => a + b, 0);
+                    totalCount += data.length;
+                });
+                const totalMean = totalSum / totalCount;
+            }
+        });
         const result = {
             lossActor: metrics.lossActor,
             lossCritic: metrics.lossCritic,
