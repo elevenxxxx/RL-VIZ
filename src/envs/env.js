@@ -528,24 +528,24 @@ export class Game {
         const [ok, is_eat] = this.board.move(p, n_r, n_c);
         // console.log("我方移动结果:", ok, is_eat);
         if (!ok) return [false, initMap, 0, false, false];//非法动作
+        const win1 = this.checkWin();
+        if (win1) {
+            if (win1 === "red") {
+                console.info("red win!");
+                this.episode++;
+                return [true, initMap, 100, true, false];
+            }
+            if (win1 === "black") {
+                console.info("black win!");
+                this.episode++;
+                return [true, initMap, -100, true, false];
+            }
+            console.error("checkWin return unknown:", win1);
+            return [false, initMap, 0, false, false];
+        }
 
         if (this.render_mode == "render") {
             this.render();
-        }
-
-        const win = this.checkWin();
-        if (win) {
-            this.reset();
-            if (win === "red") {
-                console.info("red win!");
-                return [true, initMap, 100, true, false];
-            }
-            if (win === "black") {
-                console.info("black win!");
-                return [true, initMap, -100, true, false];
-            }
-            console.error("checkWin return unknown:", win);
-            return [false, initMap, 0, false, false];
         }
 
         this.turn = this.turn === "red" ? "black" : "red";
@@ -557,7 +557,22 @@ export class Game {
         if (interval > 0) {
             await new Promise(resolve => setTimeout(resolve, interval));//1s
         }
-        const [_, been_eat] = this.reflect();
+        const [_, been_eat] = this.reflect(false);
+        const win2 = this.checkWin();
+        if (win2) {
+            if (win2 === "red") {
+                console.info("red win!");
+                this.episode++;
+                return [true, initMap, 100, true, false];
+            }
+            if (win2 === "black") {
+                console.info("black win!");
+                this.episode++;
+                return [true, initMap, -100, true, false];
+            }
+            console.error("checkWin return unknown:", win2);
+            return [false, initMap, 0, false, false];
+        }
         this.episode++;
         // console.log("敌方吃子:", been_eat);
 
@@ -664,7 +679,7 @@ export class Game {
         return this.turn === "red" ? "black" : "red";
     }
     //敌方AI步进
-    reflect() {
+    reflect(is_auto_end = true) {
         let m_piece = [];
         if (this.turn != "black") {
             console.log("error:turn is not black!")
@@ -700,7 +715,9 @@ export class Game {
                 if (this.render_mode == "render")
                     console.info(win + " win!");
 
-                this.reset();
+                if (is_auto_end) {
+                    this.reset();
+                }
                 return [true, this.turn === "red" ? 0 : 16];
             }
         }

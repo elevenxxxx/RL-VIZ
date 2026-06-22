@@ -225,13 +225,13 @@ export class Agent {
         terminated = res[3];
         truncated = res[4];
 
-        done = terminated || truncated;
         if (success) {
           logProbValue = logProb.dataSync()[0];
         }
         tf.dispose([s, u, logProb]);
       }
-      //console.log("logProbValue", logProbValue);
+
+      done = terminated || truncated;
       buffer.push({
         state: encode_state(state),
         action: actionIndex,
@@ -239,7 +239,10 @@ export class Agent {
         logProb: logProbValue,
         done: done ? 1 : 0,
       });
-
+      //console.log(`[${buffer.length},${this.env.episode}]`);
+      if (buffer.length != this.env.episode) {
+        console.error(`buffer length ${buffer.length} != episode ${this.env.episode}`)
+      }
       state = nextState;
 
       if (done) break;
@@ -377,11 +380,6 @@ export class Agent {
     const oldLogProbs = tf.tensor(buffer.map(b => b.logProb));
     //console.log('oldLogProbs shape:', oldLogProbs.shape);//[buffer.length]
     const adv = tf.tensor(advantages);
-    // const { mean, variance } = tf.moments(adv2);
-    // const adv = tf.div(
-    //   tf.sub(adv2, mean),
-    //   tf.sqrt(variance).add(1e-8)
-    // );//标准化
     let metrics = {};
     console.log("开始优化Actor")
     // ===== Actor update =====
@@ -558,6 +556,7 @@ export class Agent {
     this.env.render_mode = "none"
     let history = [];
     for (let i = 0; i < episodes; i++) {
+      this.env.reset();
       let buffer = await this.RunGame();
       if (buffer == null) {
         console.error("RunGame return null, episode:", i);
@@ -570,7 +569,7 @@ export class Agent {
       //   console.log(`buffer${randomIndex}:`, buffer[randomIndex]);
       // }
       if (buffer.length > 100) {
-        console.log("buffer长度大于100:", buffer.length);
+        console.error("buffer长度大于100:", buffer.length);
         buffer = buffer.slice(0, 100); // 改为取前100个样本
       }
       const metrics = await this.updateModel(buffer);
