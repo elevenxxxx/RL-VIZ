@@ -131,7 +131,8 @@ class ActorNet {
       const { mean, std } = this.forward(state);
       //console.log("mean", mean.dataSync()[0]);
       //console.log("std", std.dataSync()[0]);
-      const tanh_u = tf.tanh(mean);//使用mean作为确定性策略
+      const u = tf.randomNormal(mean.shape, mean.dataSync()[0], std.dataSync()[0]);
+      const tanh_u = tf.tanh(u);//使用mean作为确定性策略
       //console.log("tanh_u", tanh_u.dataSync()[0]);
       const a = tf.mul(tf.abs(tanh_u), this.actionScale);
       //console.log("a", a.dataSync()[0]);
@@ -173,8 +174,8 @@ export class Agent {
     this.lam = 0.95;
     this.clip = 0.2;
     this.actionScale = 187;
-    this.actor_lr = 0.001;
-    this.critic_lr = 5e-3;
+    this.actor_lr = 0.01;
+    this.critic_lr = 0.01;
 
     this.actorOpt = tf.train.adam(this.actor_lr);
     //this.actorOpt = this.createClippedOptimizer(3e-4);
@@ -463,7 +464,7 @@ export class Agent {
     let metrics = {};
     console.log("开始优化Actor")
     // ===== Actor update =====
-    console.log('Actor fc1 trainable:', this.actor.fc1.trainable);
+    //console.log('Actor fc1 trainable:', this.actor.fc1.trainable);
     tf.tidy(() => {
       const { mean, std } = this.actor.forward(states);
       // console.log('mean:', mean.dataSync());
@@ -478,20 +479,20 @@ export class Agent {
       const logProb = logProbNormal.sub(correction).sum(-1);
       // console.log('logProb:', logProb.dataSync());
       // console.log('oldLogProbs:', oldLogProbs.dataSync());
-      const ratio = tf.exp(tf.sub(logProb, oldLogProbs));
-      // console.log('ratio:', ratio.dataSync());
-      console.log('adv:', adv.dataSync());
-      const surr1 = tf.mul(ratio, adv);
-      //console.log('surr1:', surr1);
-      const surr2 = tf.mul(
-        tf.clipByValue(ratio, 1 - this.clip, 1 + this.clip),
-        adv
-      );
-      //console.log('surr2:', surr2);
+      // const ratio = tf.exp(tf.sub(logProb, oldLogProbs));
+      // // console.log('ratio:', ratio.dataSync());
+      // console.log('adv:', adv.dataSync());
+      // const surr1 = tf.mul(ratio, adv);
+      // //console.log('surr1:', surr1);
+      // const surr2 = tf.mul(
+      //   tf.clipByValue(ratio, 1 - this.clip, 1 + this.clip),
+      //   adv
+      // );
+      // //console.log('surr2:', surr2);
 
-      const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
+      // const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
       const kl = tf.mean(tf.sub(oldLogProbs, logProb));
-      metrics.lossActor = loss.dataSync()[0];
+      //metrics.lossActor = loss.dataSync()[0];
       metrics.kl = kl.dataSync()[0];
 
     });
@@ -513,12 +514,9 @@ export class Agent {
       const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
 
       return loss;
-    }, true, [
-      ...this.actor.fc1.trainableWeights,
-      ...this.actor.mean.trainableWeights,
-      this.actor.logStd
-    ]);
+    }, true);
     console.log('Actor loss:', losss.dataSync()[0]);
+    metrics.lossActor = loss.dataSync()[0];
 
     // tf.tidy(() => {
     //   const logits = this.actor.forward(states);
@@ -587,18 +585,18 @@ export class Agent {
     // });
 
     const weights = this.actor.fc1.getWeights()[0];
-    const norm = weights.norm().dataSync()[0];
-    console.log('Weight norm before/after:', norm);
+    const norm = weights.mean().dataSync()[0];
+    console.log('Weight mean before/after:', norm);
     if (weights.dataSync().some(v => isNaN(v)))
       console.log("The actor weights has NaN values");
     console.log("Actor std:", this.actor.logStd.dataSync());
 
     console.log("开始优化Critic")
     // ===== Critic update =====
-    console.log("critic trainable:", this.critic.fc1.trainable);
-    console.log("critic trainable:", this.critic.fc2.trainable);
-    const returns = tf.add(adv, old_value);
-    console.log('old_value:', old_value.dataSync());
+    // console.log("critic fc1 trainable:", this.critic.fc1.trainable);
+    // console.log("critic fc2 trainable:", this.critic.fc2.trainable);
+    const returns = tf.add(adv, old_V);
+    console.log('old_value:', old_V.dataSync());
     const targets = returns.clone();
 
     console.log('Critic values:', this.critic.value(states).reshape([-1]).dataSync());
