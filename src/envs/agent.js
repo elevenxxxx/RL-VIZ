@@ -1,40 +1,49 @@
 import * as tf from "@tensorflow/tfjs";
 import { encode_state } from "./utils.js";
+import { drawlineGraph } from "./graph.js";
 class ActorNet {
-  constructor(stateDim, hiddenDim = 256, actionDim = 188) {
+  constructor(stateDim, hiddenDim = 256, actionDim = 1) {
     this.fc1 = tf.layers.dense({
       units: hiddenDim,
       activation: "relu",
       inputShape: [stateDim],
+      kernelInitializer: 'glorotNormal',  // 明确指定初始化器
+      biasInitializer: 'zeros'
     });
 
-    // this.mean = tf.layers.dense({
-    //   units: actionDim,
-    //   activation: "tanh",
-    // });
+    this.mean = tf.layers.dense({
+      units: actionDim,
+      activation: "tanh",
+      kernelInitializer: 'glorotNormal',  // 明确指定初始化器
+      biasInitializer: 'zeros'
+    });
 
-    // this.logStd = tf.variable(tf.zeros([actionDim]));
+    this.logStd = tf.variable(tf.zeros([actionDim]));
 
     // 输出 logits categorical policy
-    this.logits = tf.layers.dense({
-      units: actionDim,
-    });
+    // this.logits = tf.layers.dense({
+    //   units: actionDim,
+    // });
+    // this.model = tf.sequential();
+    // this.model.add(this.fc1);
+    // this.model.add(this.logits);
+    this.actionScale = 187;
   }
 
   forward(state) {
     return tf.tidy(() => {
       // console.log('输入 state shape:', state.shape);  // 应该是 [1, 1260]
       const x = this.fc1.apply(state);
-      // const mean = this.mean.apply(x);
+      const mean = this.mean.apply(x);
       // console.log('fc1 输出 shape:', x.shape);  // 应该是 [1, 256]
-      // //const logStd = this.logStd.clipByValue(-20, 2);
-      // const logStd = tf.clipByValue(this.logStd, -20, 2);
-      // const std = tf.exp(logStd);
 
-      // return { mean, std };
-      const logits = this.logits.apply(x);
+      const logStd = tf.clipByValue(this.logStd, -20, 2);
+      const std = tf.exp(logStd);
+
+      return { mean, std };
+      //const logits = this.logits.apply(x);
       // console.log('logits 输出 shape:', logits.shape);  // 应该是 [1, 188]
-      return logits;
+      //return logits;
     });
   }
 
@@ -60,13 +69,39 @@ class ActorNet {
   //Categorical policy
   sampleAction(state) {
     return tf.tidy(() => {
-      const logits = this.forward(state);
-      if (logits.dataSync().some(val => isNaN(val))) {
-        console.log("logits存在NaN值");
-      }
-      if (logits.dataSync().every(val => val === 0)) {
-        console.log("logits为全0");
-      }
+      // const logits = this.forward(state);
+      // if (logits.dataSync().some(val => isNaN(val))) {
+      //   console.log("logits存在NaN值");
+      // }
+      // if (logits.dataSync().every(val => val === 0)) {
+      //   console.log("logits为全0");
+      // }
+      const { mean, std } = this.forward(state);
+      // console.log("mean", mean.dataSync()[0]);
+      // console.log("std", std.dataSync()[0]);
+
+      const u = tf.randomNormal(mean.shape, mean.dataSync()[0], std.dataSync()[0]);
+      //console.log("u", u.dataSync()[0]);
+      const z = u.sub(mean).div(std);
+      //console.log("z", z.dataSync());
+      const logProbNormal = tf.scalar(-0.5).mul(z.square())
+        .sub(tf.scalar(0.5).mul(tf.log(tf.scalar(2 * Math.PI))))
+        .sub(tf.log(std));
+      //console.log("logProbNormal", logProbNormal.dataSync());
+
+      const tanh_u = tf.tanh(u);
+      //console.log("tanh_u", tanh_u.dataSync());
+      const correction = tf.log(tf.scalar(1).sub(tanh_u.square()).add(tf.scalar(1e-6)));
+      //console.log("correction", correction.dataSync());
+      // 最终log概率（在最后一维求和）
+      const logProb = logProbNormal.sub(correction).sum(-1);
+      //console.log("logProb", logProb.dataSync());
+      const a = tf.mul(tf.abs(tanh_u), this.actionScale);
+      //console.log("a", a.dataSync());
+      // 返回动作和对数概率
+      // console.log("logProb", logProb.dataSync()[0]);
+      // console.log("a", a.dataSync()[0]);
+      return { u_continuous: a, logProb: logProb };
       // const probs = tf.softmax(logits);
       // const dist = tf.randomUniform(probs.shape);
       // const dist = tf.clipByValue(
@@ -80,16 +115,24 @@ class ActorNet {
       //const y = tf.add(tf.log(probs), gumbel);
 
       //const u = tf.argMax(y, -1);
-      const u = tf.multinomial(logits, 1).squeeze();  // 移除尺寸为1的维度
+      // const u = tf.multinomial(logits, 1).squeeze();  // 移除尺寸为1的维度
       // logProb = log π(a|s)
-      const logProbs = tf.logSoftmax(logits);  // 直接计算 log 概率
+      // const logProbs = tf.logSoftmax(logits);  // 直接计算 log 概率
       // console.log("logProbs", logProbs.dataSync());
-      const logProb2 = tf.gather(logProbs, u, 1);  // 取对应动作的 log 概率
-      const logProb = tf.clipByValue(logProb2, -20, 0); // log概率通常在 -20 ~ 0
+      //const logProb = tf.gather(logProbs, u, 1);  // 取对应动作的 log 概率
+      // const logProb = tf.clipByValue(logProb2, -20, 0); // log概率通常在 -20 ~ 0
       // const logProb = tf.log(tf.gather(probs, u, 1).add(1e-8));
       //  console.log("logProb", logProb2.dataSync(), "logProbClipped", logProb.dataSync());
-      return { u, logProb };
+      //return { u, logProb };
     });
+  }
+  sampleDetermineAction(state) {
+    tf.tidy(() => {
+      const { mean, std } = this.forward(state);
+      const tanh_u = tf.tanh(mean);//使用mean作为确定性策略
+      const a = tf.mul(tf.abs(tanh_u), this.actionScale);
+      return a;
+    })
   }
 }
 class CriticNet {
@@ -114,7 +157,7 @@ class CriticNet {
   }
 }
 export class Agent {
-  constructor(env, stateDim = 1260, actionDim = 188) {
+  constructor(env, stateDim = 1260, actionDim = 1) {
     this.env = env;
 
     this.actor = new ActorNet(stateDim);
@@ -124,11 +167,13 @@ export class Agent {
     this.lam = 0.95;
     this.clip = 0.2;
     this.actionScale = 187;
+    this.actor_lr = 3e-4;
+    this.critic_lr = 2e-3;
 
-    //this.actorOpt = tf.train.adam(3e-4);
-    this.actorOpt = this.createClippedOptimizer(3e-4);
-    //this.criticOpt = this.train.adam(2e-3);
-    this.criticOpt = this.createClippedOptimizer(2e-3);
+    this.actorOpt = tf.train.adam(this.actor_lr);
+    //this.actorOpt = this.createClippedOptimizer(3e-4);
+    this.criticOpt = tf.train.adam(this.critic_lr);
+    //this.criticOpt = this.createClippedOptimizer(2e-3);
     this.entropyCoef = 0.01;//熵系数 反应探索的重视程度
   }
   // 裁剪优化度
@@ -149,35 +194,52 @@ export class Agent {
     };
   }
   clipGradients(grads, maxNorm) {
-    // 计算所有梯度的 L2 范数
-    let totalNorm = tf.tensor(0);
-    const gradList = [];
-    for (const [varName, grad] of Object.entries(grads)) {
+    const eps = tf.scalar(1e-8);
+
+    const filtered = [];
+    const cleanGrads = {};
+
+    for (const [name, grad] of Object.entries(grads)) {
       if (grad) {
-        gradList.push(grad);
-        totalNorm = totalNorm.add(grad.square().sum());
+        const g = tf.where(
+          tf.isFinite(grad),
+          grad,
+          tf.zerosLike(grad)
+        );
+
+        cleanGrads[name] = g;
+        filtered.push(g.square().sum());
       }
     }
-    totalNorm = totalNorm.sqrt();
-    const scale = tf.minimum(maxNorm / totalNorm, 1.0);
-    // 应用裁剪
-    const clippedGrads = {};
-    for (const [varName, grad] of Object.entries(grads)) {
-      if (grad) {
-        clippedGrads[varName] = grad.mul(scale);
-      }
+    const totalNorm = tf.addN(filtered).sqrt();
+    const scale = tf.clipByValue(
+      maxNorm / totalNorm.add(eps),
+      0,
+      1
+    );
+
+    const clipped = {};
+    for (const [name, g] of Object.entries(cleanGrads)) {
+      clipped[name] = g.mul(scale);
     }
-    // 清理临时张量
+
     totalNorm.dispose();
     scale.dispose();
 
-    return clippedGrads;
+    return clipped;
   }
   // 连续 → 离散动作映射 Gaussian policy
   decodeAction(u) {
-    const v = u.dataSync()[0];
-    const a = Math.round(((v + 1) / 2) * this.actionScale);
-    return Math.max(0, Math.min(187, a));
+    if (u < 0 || u > 187) {
+      console.error("internal error:u out of range")
+    }
+    let v;
+    if (u instanceof tf.Tensor) {
+      v = u.dataSync()[0];  // 获取标量值
+    } else {
+      v = u;
+    }
+    return Math.max(0, Math.min(187, Math.round(v)));
   }
 
   async RunGame() {
@@ -191,7 +253,7 @@ export class Agent {
       let success = false;
       let nextState, reward, terminated, truncated;
 
-      let actionIndex, logProbValue;
+      let actionIndex, logProbValue, action;
       let trial = 0;
       while (!success) {
         trial++;
@@ -207,11 +269,12 @@ export class Agent {
         //console.log("encoded_state", encoded_state);//Float32Array(1260)
         const s = tf.tensor2d([encoded_state], [1, 1260]);//(1,1260)
 
-        const { u, logProb } = this.actor.sampleAction(s);//应该是0~187
-
-        // actionIndex = this.decodeAction(u);
-        // console.log("actionIndex", actionIndex);
-        actionIndex = this.env.ModifyAction(u.dataSync()[0]);
+        const { u_continuous, logProb } = this.actor.sampleAction(s);//应该是0~187
+        action = u_continuous.dataSync()[0];
+        //console.log("action", action);
+        let a_discrete = this.decodeAction(action);
+        actionIndex = this.env.ModifyAction(a_discrete);
+        //console.log("actionIndex", actionIndex);
         if (actionIndex < 0) {
           console.error("internal error:ModifyAction return -1")
           return null;
@@ -228,7 +291,7 @@ export class Agent {
         if (success) {
           logProbValue = logProb.dataSync()[0];
         }
-        tf.dispose([s, u, logProb]);
+        tf.dispose([s, u_continuous, logProb]);
       }
 
       done = terminated || truncated;
@@ -272,14 +335,23 @@ export class Agent {
         console.info("step:", st, "第", trial, "次尝试");
 
         // 使用 tf.tidy 自动清理内存并确保梯度不被追踪
+        // const { actionIndex } = tf.tidy(() => {
+        //   let encoded_state = encode_state(state);
+        //   const s = tf.tensor2d([encoded_state], [1, 1260]);
+        //   const { u, logProb } = this.actor.sampleAction(s);
+        //   const actionIndex = this.env.ModifyAction(u.dataSync()[0]);
+        //   return { actionIndex };
+        // });
         const { actionIndex } = tf.tidy(() => {
           let encoded_state = encode_state(state);
           const s = tf.tensor2d([encoded_state], [1, 1260]);
-          const { u, logProb } = this.actor.sampleAction(s);
-          const actionIndex = this.env.ModifyAction(u.dataSync()[0]);
+          //const { u_continuous, logProb } = this.actor.sampleAction(s);
+          const u_continous = this.actor.sampleDetermineAction(s);
+          let u = this.decodeAction(u_continous.dataSync()[0]);
+          const actionIndex = this.env.ModifyAction(u);
           return { actionIndex };
         });
-        // console.log("actionIndex", actionIndex);
+        console.log("actionIndex", actionIndex);
         if (actionIndex < 0) {
           console.error("internal error:ModifyAction return -1")
           return null;
@@ -295,6 +367,7 @@ export class Agent {
 
       if (done) break;
     }
+
   }
   computeGAE(buffer) {
     //  const values = buffer.map(b =>
@@ -334,8 +407,8 @@ export class Agent {
         console.log(`i=${i}, reward=${reward}, done=${done}, v=${v.toFixed(4)}, vNext=${vNext.toFixed(4)}, delta=${delta.toFixed(4)}, adv=${adv.toFixed(4)}`);
       }
     }
-    console.log('advantages raw (first 5):', advantages.slice(0, 5));
-    console.log('advantages raw (last 5):', advantages.slice(-5));
+    // console.log('advantages raw (first 5):', advantages.slice(0, 5));
+    // console.log('advantages raw (last 5):', advantages.slice(-5));
     const mean = advantages.reduce((a, b) => a + b, 0) / advantages.length;
 
     const std = Math.sqrt(
@@ -383,106 +456,121 @@ export class Agent {
     let metrics = {};
     console.log("开始优化Actor")
     // ===== Actor update =====
-    // this.actorOpt.minimize(() => {
-    //   // const { mean, std } = this.actor.forward(states);
+    tf.tidy(() => {
+      const { mean, std } = this.actor.forward(states);
+      console.log('mean:', mean.dataSync());
+      console.log('std:', std.dataSync());
+      const logProb = tf.sum(
+        tf.sub(
+          tf.log(tf.div(1, tf.mul(std, tf.sqrt(2 * Math.PI)))),
+          tf.div(tf.square(tf.sub(actions, mean)), tf.mul(2, tf.square(std)))
+        ),
+        -1
+      );
+      console.log('logProb:', logProb.dataSync());
+      console.log('oldLogProbs:', oldLogProbs.dataSync());
+      const ratio = tf.exp(tf.sub(logProb, oldLogProbs));
+      console.log('ratio:', ratio.dataSync());
+      console.log('adv:', adv.dataSync());
+      const surr1 = tf.mul(ratio, adv);
+      //console.log('surr1:', surr1);
+      const surr2 = tf.mul(
+        tf.clipByValue(ratio, 1 - this.clip, 1 + this.clip),
+        adv
+      );
+      //console.log('surr2:', surr2);
 
-    //   // const logProb = tf.sum(
-    //   //   tf.sub(
-    //   //     tf.log(tf.div(1, tf.mul(std, tf.sqrt(2 * Math.PI)))),
-    //   //     tf.div(tf.square(tf.sub(actions, mean)), tf.mul(2, tf.square(std)))
-    //   //   ),
-    //   //   -1
-    //   // );
+      const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
+      const kl = tf.mean(tf.sub(oldLogProbs, logProb));
+      metrics.lossActor = loss.dataSync()[0];
+      metrics.kl = kl.dataSync()[0];
+
+    });
+    this.actorOpt.minimize(() => {
+      const { mean, std } = this.actor.forward(states);
+      const logProb = tf.sum(
+        tf.sub(
+          tf.log(tf.div(1, tf.mul(std, tf.sqrt(2 * Math.PI)))),
+          tf.div(tf.square(tf.sub(actions, mean)), tf.mul(2, tf.square(std)))
+        ),
+        -1
+      );
+      const ratio = tf.exp(tf.sub(logProb, oldLogProbs));
+      const surr1 = tf.mul(ratio, adv);
+      const surr2 = tf.mul(
+        tf.clipByValue(ratio, 1 - this.clip, 1 + this.clip),
+        adv
+      );
+      const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
+
+      return loss;
+    });
+
+    // tf.tidy(() => {
     //   const logits = this.actor.forward(states);
-    //   // console.log("logits", logits);
+    //   console.log('logits:', logits);
     //   const logProbsAll = tf.logSoftmax(logits);
-    //   //console.log("logProbsAll", logProbsAll);
-    //   // 取对应 action 的 logProb
-    //   //console.log('actions dtype:', actions.dtype);//float32
+    //   console.log('logProbsAll:', logProbsAll.dataSync());
     //   const actionsInt = actions.toInt();
-
-    //   // const idx = tf.stack([
-    //   //   tf.range(0, actionsInt.shape[0], 1, "int32"),
-    //   //   actionsInt
-    //   // ], 1);
-    //   // console.log("idx", idx);
-    //   const oneHot = tf.oneHot(actionsInt, logits.shape[1]);// one-hot mask
-    //   //const logProb = tf.gatherND(logProbsAll, idx);
+    //   console.log("actionsInt shape:", actionsInt.shape);
+    //   const oneHot = tf.oneHot(actionsInt, logits.shape[1]);
+    //   console.log('oneHot shape:', oneHot.shape);
     //   const logProb = tf.sum(tf.mul(logProbsAll, oneHot), -1);
-    //   //console.log("logProb", logProb);
-    //   const ratio = tf.exp(tf.sub(logProb, oldLogProbs));
-
-    //   const surr1 = tf.mul(ratio, adv);
-    //   const surr2 = tf.mul(
-    //     tf.clipByValue(ratio, 1 - this.clip, 1 + this.clip),
-    //     adv
+    //   console.log('oldLogProbs:', oldLogProbs.dataSync());
+    //   const ratio = tf.exp(
+    //     tf.clipByValue(
+    //       tf.sub(logProb, oldLogProbs),
+    //       -10,
+    //       10
+    //     )
     //   );
-
-    //   const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
-    //   const probs = tf.softmax(logits);
-    //   const entropy = tf.mean(
-    //     tf.neg(tf.sum(tf.mul(probs, tf.log(probs.add(1e-8))), -1))
-    //   );
+    //   const ratioMax = ratio.max().dataSync()[0];
+    //   console.log('Max ratio:', ratioMax);
+    //   const logProbs = tf.logSoftmax(logits);
+    //   const probs = tf.exp(logProbs);
+    //   // const probs = tf.softmax(logits);
+    //   console.log('probs shape:', probs.shape);
+    //   console.log('probs:', probs.dataSync());
+    //   const entropy = tf.mean(tf.neg(tf.sum(tf.mul(probs, tf.log(probs.add(1e-8))), -1)));
+    //   console.log('entropy:', entropy.dataSync()[0]);
     //   const kl = tf.mean(tf.sub(oldLogProbs, logProb));
+    //   const surr1 = tf.mul(ratio, adv);
+    //   console.log('surr1:', surr1.dataSync());
+    //   const surr2 = tf.mul(tf.clipByValue(ratio, 1 - this.clip, 1 + this.clip), adv);
+    //   console.log('surr2:', surr2.dataSync());
+    //   const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
+    //   console.log('loss:', loss.dataSync()[0]);
     //   const loss2 = tf.sub(loss, tf.mul(this.entropyCoef, entropy));
-    //   // console.log("loss", loss);
+    //   console.log('loss2:', loss2.dataSync()[0]);
 
     //   metrics.lossActor = loss2.dataSync()[0];
     //   metrics.kl = kl.dataSync()[0];
     //   metrics.entropy = entropy.dataSync()[0];
-
+    // });
+    // this.actorOpt.minimize(() => {
+    //   // 只做计算，不 dataSync
+    //   const logits = this.actor.forward(states);
+    //   const logProbsAll = tf.logSoftmax(logits);
+    //   const actionsInt = actions.toInt();
+    //   const oneHot = tf.oneHot(actionsInt, logits.shape[1]);
+    //   const logProb = tf.sum(tf.mul(logProbsAll, oneHot), -1);
+    //   const ratio = tf.exp(
+    //     tf.clipByValue(
+    //       tf.sub(logProb, oldLogProbs),
+    //       -10,
+    //       10
+    //     )
+    //   );
+    //   const surr1 = tf.mul(ratio, adv);
+    //   const surr2 = tf.mul(tf.clipByValue(ratio, 1 - this.clip, 1 + this.clip), adv);
+    //   const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
+    //   //const probs = tf.softmax(logits);
+    //   const logProbs = tf.logSoftmax(logits);
+    //   const probs = tf.exp(logProbs);
+    //   const entropy = tf.mean(tf.neg(tf.sum(tf.mul(probs, tf.log(probs.add(1e-8))), -1)));
+    //   const loss2 = tf.sub(loss, tf.mul(this.entropyCoef, entropy));
     //   return loss2;
     // });
-    tf.tidy(() => {
-      const logits = this.actor.forward(states);
-      console.log('logits:', logits.dataSync());
-      const logProbsAll = tf.logSoftmax(logits);
-      console.log('logProbsAll:', logProbsAll.dataSync());
-      const actionsInt = actions.toInt();
-      console.log("actionsInt shape:", actionsInt.shape);
-      const oneHot = tf.oneHot(actionsInt, logits.shape[1]);
-      console.log('oneHot shape:', oneHot.shape);
-      const logProb = tf.sum(tf.mul(logProbsAll, oneHot), -1);
-      console.log('oldLogProbs:', oldLogProbs.dataSync());
-      const ratio = tf.exp(tf.sub(logProb, oldLogProbs));
-      const ratioMax = ratio.max().dataSync()[0];
-      console.log('Max ratio:', ratioMax);
-      const probs = tf.softmax(logits);
-      console.log('probs shape:', probs.shape);
-      console.log('probs:', probs.dataSync());
-      const entropy = tf.mean(tf.neg(tf.sum(tf.mul(probs, tf.log(probs.add(1e-8))), -1)));
-      console.log('entropy:', entropy.dataSync()[0]);
-      const kl = tf.mean(tf.sub(oldLogProbs, logProb));
-      const surr1 = tf.mul(ratio, adv);
-      console.log('surr1:', surr1.dataSync());
-      const surr2 = tf.mul(tf.clipByValue(ratio, 1 - this.clip, 1 + this.clip), adv);
-      console.log('surr2:', surr2.dataSync());
-      const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
-      console.log('loss:', loss.dataSync()[0]);
-      const loss2 = tf.sub(loss, tf.mul(this.entropyCoef, entropy));
-      console.log('loss2:', loss2.dataSync()[0]);
-
-      metrics.lossActor = loss2.dataSync()[0];
-      metrics.kl = kl.dataSync()[0];
-      metrics.entropy = entropy.dataSync()[0];
-    });
-    this.actorOpt.minimize(() => {
-      // 只做计算，不 dataSync
-      const logits = this.actor.forward(states);
-      const logProbsAll = tf.logSoftmax(logits);
-      const actionsInt = actions.toInt();
-      const oneHot = tf.oneHot(actionsInt, logits.shape[1]);
-      const logProb = tf.sum(tf.mul(logProbsAll, oneHot), -1);
-      const ratio = tf.exp(tf.sub(logProb, oldLogProbs));
-      const surr1 = tf.mul(ratio, adv);
-      const surr2 = tf.mul(tf.clipByValue(ratio, 1 - this.clip, 1 + this.clip), adv);
-      const loss = tf.neg(tf.mean(tf.minimum(surr1, surr2)));
-      const probs = tf.softmax(logits);
-      const entropy = tf.mean(tf.neg(tf.sum(tf.mul(probs, tf.log(probs.add(1e-8))), -1)));
-      const loss2 = tf.sub(loss, tf.mul(this.entropyCoef, entropy));
-
-      return loss2;
-    });
 
     const weights = this.actor.fc1.getWeights()[0];
     const norm = weights.norm().dataSync()[0];
@@ -495,37 +583,65 @@ export class Agent {
     tf.tidy(() => {
       const values = this.critic.value(states).reshape([-1]);
       console.log('Critic values:', values.dataSync());
-      console.log('Critic adv:', adv.dataSync());
+      //console.log('Critic adv:', adv.dataSync());
       const returns = tf.add(adv, values);
       console.log('Critic returns:', returns.dataSync());
       let loss = tf.losses.meanSquaredError(returns, values);
+      //console.log('Critic loss:', loss.dataSync()[0]);
       metrics.lossCritic = loss.dataSync()[0];
     });
     this.criticOpt.minimize(() => {
       const values = this.critic.value(states).reshape([-1]);
-      //console.log("values", values);
       const returns = tf.add(adv, values);
+      return tf.losses.meanSquaredError(returns, values);
       //console.log("returns", returns);
+      // const delta = 1.0;
+      // const errors = tf.sub(returns, values);
+      // const absErrors = tf.abs(errors);
+      // // Huber Loss 的等效公式（无需条件判断）
+      // // L = 0.5 * error^2  if |error| <= delta
+      // // L = delta * |error| - 0.5 * delta^2  if |error| > delta
+      // // 等价于：L = 0.5 * min(|error|, delta)^2 + delta * max(|error| - delta, 0)
 
-      const delta = 1.0;
-      const errors = tf.sub(returns, values);
-      const absErrors = tf.abs(errors);
-      // Huber Loss 的等效公式（无需条件判断）
-      // L = 0.5 * error^2  if |error| <= delta
-      // L = delta * |error| - 0.5 * delta^2  if |error| > delta
-      // 等价于：L = 0.5 * min(|error|, delta)^2 + delta * max(|error| - delta, 0)
+      // const clippedAbs = tf.minimum(absErrors, delta);
+      // const quadraticPart = tf.mul(0.5, tf.square(clippedAbs));
+      // const linearPart = tf.mul(delta, tf.maximum(tf.sub(absErrors, delta), 0));
+      // const huberLoss = tf.add(quadraticPart, linearPart);
 
-      const clippedAbs = tf.minimum(absErrors, delta);
-      const quadraticPart = tf.mul(0.5, tf.square(clippedAbs));
-      const linearPart = tf.mul(delta, tf.maximum(tf.sub(absErrors, delta), 0));
-      const huberLoss = tf.add(quadraticPart, linearPart);
-
-      return tf.mean(huberLoss);
-      //  let loss = tf.losses.meanSquaredError(returns, values);
-      // console.log("loss", loss);
-      // metrics.lossCritic = loss.dataSync()[0];
-      // return loss;
+      // return tf.mean(huberLoss);
     });
+    // tf.tidy(() => {
+    //   const values = this.critic.value(states).reshape([-1]);
+    //   console.log('Critic values:', values.dataSync());
+    //   console.log('Critic adv:', adv.dataSync());
+    //   const returns = tf.add(adv, values);
+    //   console.log('Critic returns:', returns.dataSync());
+    //   let loss = tf.losses.meanSquaredError(returns, values);
+    //   metrics.lossCritic = loss.dataSync()[0];
+    // });
+    // this.criticOpt.minimize(() => {
+    //   const values = this.critic.value(states).reshape([-1]);
+    //   const returns = tf.add(adv, values);
+    //   //console.log("returns", returns);
+    //   const delta = 1.0;
+    //   const errors = tf.sub(returns, values);
+    //   const absErrors = tf.abs(errors);
+    //   // Huber Loss 的等效公式（无需条件判断）
+    //   // L = 0.5 * error^2  if |error| <= delta
+    //   // L = delta * |error| - 0.5 * delta^2  if |error| > delta
+    //   // 等价于：L = 0.5 * min(|error|, delta)^2 + delta * max(|error| - delta, 0)
+
+    //   const clippedAbs = tf.minimum(absErrors, delta);
+    //   const quadraticPart = tf.mul(0.5, tf.square(clippedAbs));
+    //   const linearPart = tf.mul(delta, tf.maximum(tf.sub(absErrors, delta), 0));
+    //   const huberLoss = tf.add(quadraticPart, linearPart);
+
+    //   return tf.mean(huberLoss);
+    //   //  let loss = tf.losses.meanSquaredError(returns, values);
+    //   // console.log("loss", loss);
+    //   // metrics.lossCritic = loss.dataSync()[0];
+    //   // return loss;
+    // });
 
     this.critic.model.layers.forEach((layer, index) => {
       const weights = layer.getWeights();
@@ -573,6 +689,17 @@ export class Agent {
         buffer = buffer.slice(0, 100); // 改为取前100个样本
       }
       const metrics = await this.updateModel(buffer);
+      // let record =
+      // {
+      //   episode: i,
+      //   reward: buffer.reduce((a, b) => a + b.reward, 0),
+      //   lossActor: metrics.lossActor,//合法范围波动才对
+      //   lossCritic: metrics.lossCritic,//应该逐渐下降才对
+      //   kl: metrics.kl,//应该适中
+      //   entropy: metrics.entropy,//衡量探索度，应该先高后底
+      //   advMean: metrics.advMean,//应该接近0
+      //   buffer_len: buffer.length,
+      // };
       let record =
       {
         episode: i,
@@ -580,13 +707,13 @@ export class Agent {
         lossActor: metrics.lossActor,//合法范围波动才对
         lossCritic: metrics.lossCritic,//应该逐渐下降才对
         kl: metrics.kl,//应该适中
-        entropy: metrics.entropy,//衡量探索度，应该先高后底
         advMean: metrics.advMean,//应该接近0
         buffer_len: buffer.length,
       };
       console.log(record);
       history.push(record);
     }
+    drawlineGraph(history);//绘图
     alert("训练完成,开始评估");
     console.log(history);
     await this.test();

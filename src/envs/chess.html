@@ -4,20 +4,45 @@
 <head>
     <meta charset="UTF-8">
     <title>Chinese Chess RL Environment</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <script type="module" src="./main.js"></script>
     <style>
         body {
             margin: 0;
             display: flex;
+            overflow-x: hidden;
+            overflow-y:auto;
+            flex-direction: column;
+            height:100%;
+            position: relative;
         }
-
-        #game {
+        #graph{
+            width:100%;
+            display:flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0; 
+            position: relative;
+        }
+        #graph-container{
+            width: 1000px;
+            height: 600px;
+        }
+        #show{
             flex: 1;
+            margin: 0;
+            display: flex;
+
+            width:100%;
+            background: #f2d7a0;
+            position: relative;
+        }
+        #game{
+            height: 800px;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            background: #f2d7a0;
+            flex:1;
         }
 
         #controls {
@@ -38,7 +63,7 @@
 </head>
 
 <body>
-
+<div id="show">
     <div id="game">
         <canvas id="board" width="600" height="670"></canvas>
     </div>
@@ -49,7 +74,13 @@
         <button onclick="test()">评估模型</button>
         <button onclick="load()">加载模型</button>
         <button onclick="save()">保存模型</button>
+        <button onclick="drawGraph()">测试绘图</button>
     </div>
+
+</div>
+<div id="graph">
+    <div id="graph-container"></div>
+</div>
 
 <script>
     
