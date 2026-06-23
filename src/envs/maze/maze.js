@@ -1,9 +1,9 @@
 import p5 from "p5";
 
 export const config = {
-  cols: 21,// 必须奇数
-  rows: 21,
-  cellSize: 28,
+  cols: 25,// 必须奇数
+  rows: 25,
+  cellSize: 30,
 
   renderTrain: true,
   renderSpeed: 10,
@@ -23,9 +23,17 @@ let grid = [];
 let agent;
 let start;
 let goal;
-let Q = {};
-let records = []
+let Q = {};//存储Q值
+let QTrace = {};//存储附加信息
+let visitCount = {};//存储访问次数
 
+let records = [];//存储训练信息
+
+let hoverCell = null;
+let hoverStartTime = 0;
+let hoverDelay = 400; // ms
+
+let isTest = false
 function drawMaze(p) {
   for (let y = 0; y < config.rows; y++) {
     for (let x = 0; x < config.cols; x++) {
@@ -47,7 +55,76 @@ function drawMaze(p) {
     }
   }
 }
+function drawHeatmap(p) {
+  let maxVisit = 1;
 
+  for (let k in visitCount) {
+    maxVisit = Math.max(maxVisit, visitCount[k]);
+  }
+
+  p.noStroke();
+
+  for (let y = 0; y < config.rows; y++) {
+    for (let x = 0; x < config.cols; x++) {
+
+      const cell = grid[y][x];
+
+      if (cell.wall) continue;
+
+      const s = rc2stateId(x, y);
+      const v = visitCount[s] || 0;
+
+      if (v === 0) continue;
+
+      const intensity = v / maxVisit;
+
+      // ====== 用 alpha 而不是纯蓝覆盖 ======
+      const alpha = 120 * intensity;
+
+      p.fill(0, 0, 123, alpha); // 透明蓝
+      p.rect(
+        x * config.cellSize,
+        y * config.cellSize,
+        config.cellSize,
+        config.cellSize
+      );
+    }
+  }
+}
+function drawTooltip(p) {
+  if (!hoverCell) return;
+
+  const now = performance.now();
+
+  if (now - hoverStartTime < hoverDelay) return;
+
+  const tooltip = document.getElementById("maze_tooltip");
+
+  const [x, y] = hoverCell.split(",").map(Number);
+
+  const s = rc2stateId(x, y);
+  const q = getQ(s);
+  const trace = getQTrace ? getQTrace(s) : null;
+
+  const actions = ["↑", "↓", "←", "→"];
+
+  let html = `<b>${s}</b><br/>`;
+
+  for (let i = 0; i < 4; i++) {
+    html += `<div style="font-size:18px;">${actions[i]}: ${q[i].toFixed(3)}</div>`;
+
+    if (trace && trace[i]) {
+      html += `<div style="font-size:18px;color:#0ff">
+        ${trace[i].values}
+      </div>`;
+    }
+  }
+
+  tooltip.innerHTML = html;
+  tooltip.style.left = p.mouseX + 12 + "px";
+  tooltip.style.top = p.mouseY + 12 + "px";
+  tooltip.style.display = "block";
+}
 function drawGoal(p) {
   p.fill(220, 50, 50);
   p.rect(
@@ -201,7 +278,18 @@ function createMazeDFS(cols, rows) {
 function rc2stateId(x, y) {
   return `${x},${y}`;
 }
-
+function getQTrace(s) {
+  if (!QTrace[s]) {
+    QTrace[s] = [
+      null, null, null, null
+    ];
+  }
+  return QTrace[s];
+}
+function getVisit(s) {
+  if (!visitCount[s]) visitCount[s] = 0;
+  return visitCount[s];
+}
 function getQ(s) {
   if (!Q[s]) Q[s] = [0, 0, 0, 0];
   return Q[s];
@@ -223,9 +311,26 @@ function updateQ(s, a, r, s2) {
 
   const maxNext = Math.max(...q2);
 
-  q[a] =
-    q[a] +
-    config.alpha * (r + config.gamma * maxNext - q[a]);
+  const oldQ = q[a];
+
+  const tdTarget = r + config.gamma * maxNext;
+  const tdError = tdTarget - oldQ;
+
+  const newQ = oldQ + config.alpha * tdError;
+
+  q[a] = newQ;
+
+  const trace = getQTrace(s);
+
+  trace[a] = {
+    formula: `
+Q(s,a) = Q(s,a) + \\alpha [r + \\gamma \\max Q(s',a') - Q(s,a)]
+`,
+    values: `
+= ${oldQ.toFixed(3)} + ${config.alpha} × (${r.toFixed(3)} + ${config.gamma} × ${maxNext.toFixed(3)} - ${oldQ.toFixed(3)})
+`,
+    result: newQ.toFixed(3)
+  };
 }
 
 const sketch = (p) => {
@@ -240,11 +345,40 @@ const sketch = (p) => {
   };
 
   p.draw = () => {
-    p.background(245);
+    p.background(245);//灰度值
     drawMaze(p);
+    drawHeatmap(p);
     drawPolicy(p);
     drawAgent(p);
     drawGoal(p);
+
+    drawTooltip(p);
+  };
+
+  const tooltip = document.getElementById("maze_tooltip");
+
+
+  p.mouseMoved = () => {
+    const x = Math.floor(p.mouseX / config.cellSize);
+    const y = Math.floor(p.mouseY / config.cellSize);
+
+    if (
+      x < 0 || y < 0 ||
+      x >= config.cols ||
+      y >= config.rows
+    ) {
+      hoverCell = null;
+      return;
+    }
+
+    const newCell = `${x},${y}`;
+
+    // ====== 关键：如果换格子，重置计时 ======
+    if (hoverCell !== newCell) {
+      hoverCell = newCell;
+      hoverStartTime = performance.now();
+      document.getElementById("maze_tooltip").style.display = "none";
+    }
   };
 };
 
@@ -318,6 +452,10 @@ export function step(action) {
   const s = rc2stateId(agent.x, agent.y);
   const s2 = rc2stateId(agent.tx, agent.ty);
 
+  if (!isTest) {
+    visitCount[s2] = (visitCount[s2] || 0) + 1;
+  }
+
   if (config.stepMode) {
     updateQ(s, a, reward, s2);
   }
@@ -376,6 +514,7 @@ export async function test() {
   let s = rc2stateId(agent.x, agent.y);
   let done = false;
   let stepCount = 0;
+  isTest = true
 
   while (!done && stepCount < config.maxSteps) {
 
@@ -389,6 +528,7 @@ export async function test() {
 
     await new Promise(r => setTimeout(r, 10));// 延时10ms，使动画更清晰
   }
+  isTest = false
   alert("测试完成,总步数：" + stepCount + ",是否到达终点：" + done);
 }
 //刷新整个界面
@@ -398,7 +538,9 @@ export function fresh() {
   start = { x: 1, y: 1 };
   goal = { x: config.cols - 2, y: config.rows - 2 };
   //重置智能体
-  resetAgent()
+  resetAgent();
+  //重置可视化
+  resetVis();
 }
 //重置智能体
 export function resetAgent() {
@@ -411,8 +553,13 @@ export function resetAgent() {
     prevY: start.y,
   };
   Q = {}
+  visitCount = {}
+  QTrace = {}
+  records = []
   config.stop = false;
   config.currentEpisode = 0;
+
+  isTest = false
 }
 
 
@@ -426,8 +573,14 @@ export function reset() {
     prevY: start.y,
   };
   config.stop = false;
+  resetVis();
 }
-
+//重置可视化
+export function resetVis() {
+  hoverCell = null;
+  hoverStartTime = 0;
+  isTest = false
+}
 export function debug() {
   console.log(Q);
 }

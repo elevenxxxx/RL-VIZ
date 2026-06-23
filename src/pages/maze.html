@@ -11,35 +11,48 @@
         body {
             margin: 0;
             display: flex;
-            overflow-x: hidden;
-            overflow-y:auto;
+            overflow-x: auto;
+            overflow-y: auto;
             flex-direction: column;
-            height:100%;
-            position:relative;
-
+            height: 100%;
+            position: relative;
         }
-
-        #show{
+    
+        #show {
             flex: 1;
             margin: 0;
             display: flex;
-            width:100%;
+            width: 100%;
             position: relative;
         }
-        #game{
-            height: 800px;
-            padding:20px;
+    
+        #game {
+            min-height: 800px;
+            padding: 80px 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-            flex:1;
+            flex: 1;
         }
-
+    
+        #maze_tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 8px;
+            border-radius: 6px;
+            pointer-events: none;
+            display: none;
+            max-width: 400px;
+            max-height: 300px;
+            z-index: 999;
+        }
+    
         #controls {
             width: 200px;
             padding: 10px;
         }
-
+    
         button {
             width: 100%;
             margin-bottom: 10px;
@@ -50,6 +63,7 @@
 <body>
 <div id="show">
     <div id="game">
+        <div id="maze_tooltip"></div>
     </div>
 
     <div id="controls">
