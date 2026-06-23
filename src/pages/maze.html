@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Maze RL Environment</title>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script> -->
+
+     <script type="module" src="/src/envs/maze/maze.js"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            overflow-x: hidden;
+            overflow-y:auto;
+            flex-direction: column;
+            height:100%;
+            position:relative;
+
+        }
+
+        #show{
+            flex: 1;
+            margin: 0;
+            display: flex;
+            width:100%;
+            position: relative;
+        }
+        #game{
+            height: 800px;
+            padding:20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex:1;
+        }
+
+        #controls {
+            width: 200px;
+            padding: 10px;
+        }
+
+        button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+<div id="show">
+    <div id="game">
+    </div>
+
+    <div id="controls">
+        <button id="resetBtn">重置所有</button>
+        <button id="resetAgentBtn">重置智能体</button>
+        <button id="fresh">刷新页面/刷新地图</button>
+
+        <button id="trainBtn">训练</button>
+        <button id="stepTrainBtn">训练一轮</button>
+        <button id="stopBtn">停止训练</button>
+        <button id="stepBtn">下一步</button>
+        <button id="testBtn">测试</button>
+        
+        <button id="debugBtn">打印Q表</button>
+
+        <div class="cfgRow">
+            <label>显示训练过程动画</label>
+            <input type="checkbox" id="cfgRenderTrain" checked />
+        </div>
+    
+        <div class="cfgRow">
+            <label>步进时更新Q表</label>
+            <input type="checkbox" id="cfgStepMode" />
+        </div>
+    
+        <div class="cfgRow">
+            <label>最大训练轮数</label>
+            <input type="number" id="cfgEpisodes" value="150" />
+        </div>
+    
+        <div class="cfgRow">
+            <label>每轮最大步数</label>
+            <input type="number" id="cfgMaxSteps" value="400" />
+        </div>
+
+        <div class="cfgRow">
+            <label>渲染速度（ms/步）</label>
+            <input type="number" id="cfgRenderSpeed" value="10" />
+        </div>
+    
+        <div class="cfgRow">
+            <label>迷宫列数</label>
+            <input type="number" id="cfgCols" value="21" />
+        </div>
+    
+        <div class="cfgRow">
+            <label>迷宫行数</label>
+            <input type="number" id="cfgRows" value="21" />
+        </div>
+    
+        <div class="cfgRow">
+            <label>α 学习率</label>
+            <input type="number" step="0.01" id="cfgAlpha" value="0.1" />
+        </div>
+    
+        <div class="cfgRow">
+            <label>γ 折扣因子</label>
+            <input type="number" step="0.01" id="cfgGamma" value="0.95" />
+        </div>
+    
+        <div class="cfgRow">
+            <label>ε 探索因子</label>
+            <input type="number" step="0.01" id="cfgEpsilon" value="0.1" />
+        </div>
+
+    </div>
+
+
+</div>
+<div id="graph">
+    <div id="graph-container"></div>
+</div>
+
+<script type="module">
+    import { reset, train, test, step, debug, resetAgent, fresh, applyConfig, stepTrainEpisode, config, stopTrain } from "/src/envs/maze/maze.js";
+    document.getElementById('resetBtn').addEventListener('click', reset);
+    document.getElementById('trainBtn').addEventListener('click', train);
+    document.getElementById('testBtn').addEventListener('click', test);
+    document.getElementById('stepBtn').addEventListener('click', step);
+    document.getElementById('debugBtn').addEventListener('click', debug);
+
+    document.getElementById('resetAgentBtn').addEventListener('click', resetAgent);
+    document.getElementById('fresh').addEventListener('click', fresh);
+    document.getElementById('stepTrainBtn').addEventListener('click', stepTrainEpisode);
+    document.getElementById('stopBtn').addEventListener('click', stopTrain);
+
+    function updateViewConfig() {
+        document.getElementById('cfgRenderTrain').checked = config.renderTrain;
+        document.getElementById('cfgStepMode').checked = config.stepMode;
+        document.getElementById('cfgEpisodes').value = config.trainEpisodes;
+        document.getElementById('cfgMaxSteps').value = config.maxSteps;
+        document.getElementById('cfgRenderSpeed').value = config.renderSpeed;
+        document.getElementById('cfgCols').value = config.cols;
+        document.getElementById('cfgRows').value = config.rows;
+        document.getElementById('cfgAlpha').value = config.alpha;
+        document.getElementById('cfgGamma').value = config.gamma;
+        document.getElementById('cfgEpsilon').value = config.epsilon;
+    }
+
+    updateViewConfig();
+    applyConfig();
+</script>
+
+</body>
+
+</html>

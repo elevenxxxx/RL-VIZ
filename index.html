@@ -86,7 +86,10 @@
   <img src="https://cdn-icons-png.flaticon.com/512/1995/1995572.png" class="nav-icon">
   <span class="nav-text">Chinese Chess</span>
 </div>
-
+<div id="mazeNav" class="nav-item">
+  <img src="https://cdn-icons-png.flaticon.com/512/1995/1995572.png" class="nav-icon">
+  <span class="nav-text">Maze</span>
+</div>
 </div>
 
 <div class="content">
@@ -100,9 +103,14 @@ import { showContent } from "./src/main.js";
     console.log("try to load:", url)
     showContent(url);
   });
+  document.getElementById('mazeNav').addEventListener('click', () => {
+    let url = './src/pages/maze.html'
+    console.log("try to load:", url)
+    showContent(url);
+   });
   
   // 默认加载 chess.html
-  //showContent('/src/envs/chess.html');
+  showContent('./src/pages/maze.html');
 </script>
 
 </body>

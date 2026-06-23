@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>Chinese Chess RL Environment</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-    <script type="module" src="/src/envs/ui.js"></script>
+    <script type="module" src="/src/envs/chess/ui.js"></script>
     <style>
         body {
             margin: 0;
@@ -84,7 +84,7 @@
 </div>
 
 <script type="module">
-    import { reset, train, test, load, save, drawGraph } from "/src/envs/ui.js";
+    import { reset, train, test, load, save, drawGraph } from "/src/envs/chess/ui.js";
     document.getElementById('resetBtn').addEventListener('click', reset);
     document.getElementById('trainBtn').addEventListener('click', train);
     document.getElementById('testBtn').addEventListener('click', test);
