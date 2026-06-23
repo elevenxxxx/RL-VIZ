@@ -96,7 +96,9 @@
 <script  type="module">
 import { showContent } from "./src/main.js";
   document.getElementById('chessNav').addEventListener('click', () => {
-    showContent('./src/envs/chess.html');
+    let url = `.${import.meta.env.BASE_URL}envs/chess.html`
+    console.log("try to load:", url)
+    showContent(url);
   });
   
   // 默认加载 chess.html
