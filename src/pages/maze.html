@@ -26,6 +26,12 @@
             position: relative;
         }
     
+        #maze_info {
+            position: absolute;
+            top: 30px;
+            font-size: 20px;
+        }
+    
         #game {
             min-height: 800px;
             padding: 80px 20px;
@@ -63,6 +69,9 @@
 <body>
 <div id="show">
     <div id="game">
+        <div id="maze_info" >
+            <span id="currentEpisode"></span>
+        </div>
         <div id="maze_tooltip"></div>
     </div>
 
@@ -78,6 +87,7 @@
         <button id="testBtn">测试</button>
         
         <button id="debugBtn">打印Q表</button>
+        <button id="restoreBtn">恢复默认设置</button>
 
         <div class="cfgRow">
             <label>显示训练过程动画</label>
@@ -87,6 +97,11 @@
         <div class="cfgRow">
             <label>步进时更新Q表</label>
             <input type="checkbox" id="cfgStepMode" />
+        </div>
+
+        <div class="cfgRow">
+            <label>流型渲染</label>
+            <input type="checkbox" id="cfgHighRender" />
         </div>
     
         <div class="cfgRow">
@@ -103,14 +118,19 @@
             <label>渲染速度（ms/步）</label>
             <input type="number" id="cfgRenderSpeed" value="10" />
         </div>
+        
+        <div class="cfgRow">
+            <label>快速渲染间隔（轮）</label>
+            <input type="number" id="cfgEpRenderInterval" value="20" />
+        </div>        
     
         <div class="cfgRow">
-            <label>迷宫列数</label>
+            <label>迷宫列数(必须奇数)</label>
             <input type="number" id="cfgCols" value="21" />
         </div>
     
         <div class="cfgRow">
-            <label>迷宫行数</label>
+            <label>迷宫行数(必须奇数)</label>
             <input type="number" id="cfgRows" value="21" />
         </div>
     
@@ -138,7 +158,10 @@
 </div>
 
 <script type="module">
-    import { reset, train, test, step, debug, resetAgent, fresh, applyConfig, stepTrainEpisode, config, stopTrain } from "/src/envs/maze/maze.js";
+    import {
+        reset, train, test, step, debug, resetAgent, fresh, applyConfig, stepTrainEpisode, config, stopTrain,
+       restore , watch
+    } from "/src/envs/maze/maze.js";
     document.getElementById('resetBtn').addEventListener('click', reset);
     document.getElementById('trainBtn').addEventListener('click', train);
     document.getElementById('testBtn').addEventListener('click', test);
@@ -149,10 +172,14 @@
     document.getElementById('fresh').addEventListener('click', fresh);
     document.getElementById('stepTrainBtn').addEventListener('click', stepTrainEpisode);
     document.getElementById('stopBtn').addEventListener('click', stopTrain);
+    document.getElementById('restoreBtn').addEventListener('click', restore);
+
+    const episodeEl = document.getElementById("currentEpisode");
 
     function updateViewConfig() {
         document.getElementById('cfgRenderTrain').checked = config.renderTrain;
         document.getElementById('cfgStepMode').checked = config.stepMode;
+        document.getElementById('cfgHighRender').checked = config.high_render;
         document.getElementById('cfgEpisodes').value = config.trainEpisodes;
         document.getElementById('cfgMaxSteps').value = config.maxSteps;
         document.getElementById('cfgRenderSpeed').value = config.renderSpeed;
@@ -161,7 +188,12 @@
         document.getElementById('cfgAlpha').value = config.alpha;
         document.getElementById('cfgGamma').value = config.gamma;
         document.getElementById('cfgEpsilon').value = config.epsilon;
+        document.getElementById("currentEpisode").textContent = config.currentEpisode;
     }
+
+    watch("currentEpisode", (val) => {
+        episodeEl.textContent = `episode: ${val}`;
+    });
 
     updateViewConfig();
     applyConfig();

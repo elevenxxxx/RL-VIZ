@@ -1,24 +1,79 @@
 import p5 from "p5";
 
-export const config = {
+// export const config = {
+//   cols: 25,// 必须奇数
+//   rows: 25,
+//   cellSize: 30,
+
+//   renderTrain: true,
+//   renderSpeed: 10,
+//   stepMode: false,
+//   stop: false,
+
+//   trainEpisodes: 300,
+//   maxSteps: 400,
+//   currentEpisode: 0,
+
+//   alpha: 0.1,//学习率
+//   gamma: 0.95,//折扣因子 对未来奖励的影响程度
+//   epsilon: 0.1,//探索率
+// };
+const initConfig = {
   cols: 25,// 必须奇数
   rows: 25,
-  cellSize: 30,
+  cellSize: 35,
 
   renderTrain: true,
   renderSpeed: 10,
   stepMode: false,
   stop: false,
 
-  trainEpisodes: 150,
+  trainEpisodes: 300,
   maxSteps: 400,
   currentEpisode: 0,
+
+  EpRenderInterval: 20,
 
   alpha: 0.1,//学习率
   gamma: 0.95,//折扣因子 对未来奖励的影响程度
   epsilon: 0.1,//探索率
-};
 
+  draw_maze: true,
+  draw_heatmap: true,
+  draw_paths: true,
+  draw_current_path: true,
+  draw_policy: true,
+  draw_agent: true,
+  draw_goal: true,
+  draw_tooltip: true,
+
+  high_render: false,
+}
+
+export const config = new Proxy(structuredClone(initConfig), {
+  set(target, key, value) {
+    target[key] = value;
+
+    // 触发UI更新
+    if (key === "currentEpisode") {
+      notify("currentEpisode", value);
+    }
+
+    return true;
+  }
+});
+const watchers = {};
+
+export function watch(key, fn) {
+  if (!watchers[key]) watchers[key] = [];
+  watchers[key].push(fn);
+}
+
+function notify(key, value) {
+  if (watchers[key]) {
+    watchers[key].forEach(fn => fn(value));
+  }
+}
 let grid = [];
 let agent;
 let start;
@@ -34,6 +89,10 @@ let hoverStartTime = 0;
 let hoverDelay = 400; // ms
 
 let isTest = false
+
+let episodePaths = [];
+let currentPath = [];
+let edgeWeight = {};
 function drawMaze(p) {
   for (let y = 0; y < config.rows; y++) {
     for (let x = 0; x < config.cols; x++) {
@@ -149,7 +208,7 @@ function drawAgent(p) {
 }
 function drawPolicy(p) {
   p.textAlign(p.CENTER, p.CENTER);
-  p.textSize(14);
+  p.textSize(18);
   p.fill(30);
 
   for (let y = 0; y < config.rows; y++) {
@@ -188,6 +247,184 @@ function drawPolicy(p) {
       );
     }
   }
+}
+function drawPaths_nomi(p) {
+  p.noFill(); for (let i = 0; i < episodePaths.length; i++) {
+    const path = episodePaths[i];
+    for (let j = 1; j < path.length; j++) {
+      const a = path[j - 1];
+      const b = path[j];
+
+      const key = `${a.x},${a.y}->${b.x},${b.y}`;
+      const w = edgeWeight[key] || 1;
+
+      // ====== 1. 方向衰减（越靠前越粗） ======
+      const t = j / path.length; // 0 → 1
+      const thickness = (1 - t) * 6 + w * 0.5;
+
+      // ====== 2. 颜色衰减 ======
+      const alpha = Math.min(200, 30 + w * 20);
+
+      p.stroke(255, 0, 0, alpha);
+      p.strokeWeight(thickness);
+
+      // ====== 3. 画线 ======
+      p.line(
+        a.x * config.cellSize + config.cellSize / 2,
+        a.y * config.cellSize + config.cellSize / 2,
+        b.x * config.cellSize + config.cellSize / 2,
+        b.y * config.cellSize + config.cellSize / 2
+      );
+    }
+  }
+  // reset 
+  p.strokeWeight(1);
+  p.stroke(200);
+}
+function drawPaths(p) {
+  p.noFill();
+  p.push();
+
+  for (let i = 0; i < episodePaths.length; i++) {
+    const path = episodePaths[i];
+
+    // ⭐ 历史路径：整体再弱一点（关键）
+    const pathScale = 0.7 + i / episodePaths.length * 0.3;
+    // 0.6 ~ 1.0（越新的越明显）
+
+    for (let j = 1; j < path.length; j++) {
+      const a = path[j - 1];
+      const b = path[j];
+
+      const key = `${a.x},${a.y}->${b.x},${b.y}`;
+      const w = edgeWeight[key] || 1;
+
+      // =========================
+      // 1. 方向衰减（核心结构）
+      // =========================
+      const t = j / path.length;
+
+      // ⭐ 非线性（神经束风格）
+      const curveT = Math.pow(1 - t, 1.6);
+
+      // ⭐ 历史路径更细（重点）
+      const baseThickness = Math.max(8, episodePaths.length * 0.6);
+      const thickness = (baseThickness * curveT + w * 0.2) * pathScale;
+
+      // =========================
+      // 2. 颜色（更淡）
+      // =========================
+      const alphaBase = 160;
+      const alpha = Math.min(alphaBase, (100 + w * 5) * pathScale);
+
+      p.stroke(255, 0, 0, alpha);
+      p.strokeWeight(thickness);
+
+      // =========================
+      // 3. 画“束状线”（关键升级）
+      // =========================
+      const ax = a.x * config.cellSize + config.cellSize / 2;
+      const ay = a.y * config.cellSize + config.cellSize / 2;
+      const bx = b.x * config.cellSize + config.cellSize / 2;
+      const by = b.y * config.cellSize + config.cellSize / 2;
+
+      const mi = 7; // ⭐ 比 currentPath 少（更轻）
+
+      for (let s = 0; s < mi; s++) {
+        const t0 = s / mi;
+        const t1 = (s + 1) / mi;
+
+        const curveLocal = Math.pow(1 - t0, 1.6);
+
+        const x1 = p.lerp(ax, bx, t0);
+        const y1 = p.lerp(ay, by, t0);
+        const x2 = p.lerp(ax, bx, t1);
+        const y2 = p.lerp(ay, by, t1);
+
+        const localThickness = thickness * curveLocal; // ⭐ 更弱
+        const localAlpha = alpha * (0.6 + 0.4 * curveLocal);
+
+        p.stroke(255, 0, 0, localAlpha);
+        p.strokeWeight(localThickness);
+
+        p.line(x1, y1, x2, y2);
+      }
+    }
+  }
+
+  // reset state
+  p.strokeWeight(1);
+  p.stroke(200);
+  p.pop();
+}
+function drawCurrentPath_nomi(p) {
+  if (currentPath.length < 2) return;
+
+  p.push();
+  p.stroke(255, 0, 0, 180);
+  p.strokeWeight(3);
+  p.noFill();
+
+  for (let i = 1; i < currentPath.length; i++) {
+    const a = currentPath[i - 1];
+    const b = currentPath[i];
+    const key = `${a.x},${a.y}->${b.x},${b.y}`;
+    const w = edgeWeight[key] || 1;
+
+    p.line(
+      a.x * config.cellSize + config.cellSize / 2,
+      a.y * config.cellSize + config.cellSize / 2,
+      b.x * config.cellSize + config.cellSize / 2,
+      b.y * config.cellSize + config.cellSize / 2
+    );
+  }
+
+  p.pop();
+}
+function drawCurrentPath(p) {
+  if (currentPath.length < 2) return;
+
+  p.push();
+
+  for (let i = 1; i < currentPath.length; i++) {
+    const a = currentPath[i - 1];
+    const b = currentPath[i];
+
+    const ax = a.x * config.cellSize + config.cellSize / 2;
+    const ay = a.y * config.cellSize + config.cellSize / 2;
+    const bx = b.x * config.cellSize + config.cellSize / 2;
+    const by = b.y * config.cellSize + config.cellSize / 2;
+
+    const mi = 7; // 束的“密度”
+
+    for (let s = 0; s < mi; s++) {
+      let t = s / mi;
+
+      // 非线性粗细（关键）
+      const curveT = Math.pow(1 - t, 1.8);
+
+      const x = p.lerp(ax, bx, t);
+      const y = p.lerp(ay, by, t);
+
+      const base = 10; // 最大粗细
+      const w = base * curveT;
+
+      // edge weight 可叠加
+      const key = `${a.x},${a.y}->${b.x},${b.y}`;
+      const ew = edgeWeight?.[key] || 1;
+
+      p.stroke(255, 0, 0, 120 + ew * 10);
+      p.strokeWeight(w);
+
+      // 画短线段（形成“束”）
+      const nx = p.lerp(ax, bx, (s + 1) / mi);
+      const ny = p.lerp(ay, by, (s + 1) / mi);
+
+      p.line(x, y, nx, ny);
+    }
+  }
+
+  p.pop();
 }
 function addLoops(g, cols, rows, rate = 0.3) {
   for (let y = 1; y < rows - 1; y++) {
@@ -272,7 +509,14 @@ function createMazeDFS(cols, rows) {
   addLoops(g, cols, rows);
   return g;
 }
-
+function addEdge(a, b, weight = 1) {
+  const key = `${a.x},${a.y}->${b.x},${b.y}`;
+  let w = (edgeWeight[key] || 0) + weight;
+  if (w > 0)
+    edgeWeight[key] = w;
+  else
+    delete edgeWeight[key];
+}
 
 
 function rc2stateId(x, y) {
@@ -346,13 +590,23 @@ const sketch = (p) => {
 
   p.draw = () => {
     p.background(245);//灰度值
-    drawMaze(p);
-    drawHeatmap(p);
-    drawPolicy(p);
-    drawAgent(p);
-    drawGoal(p);
 
-    drawTooltip(p);
+    if (config.draw_maze) drawMaze(p);
+    if (config.draw_heatmap) drawHeatmap(p);
+
+    if (config.draw_paths) {
+      if (config.high_render) drawPaths(p);
+      else drawPaths_nomi(p);
+    }
+    if (config.draw_current_path) {
+      if (config.high_render) drawCurrentPath(p);
+      else drawCurrentPath_nomi(p);
+    }
+    if (config.draw_policy) drawPolicy(p);
+    if (config.draw_agent) drawAgent(p);
+    if (config.draw_goal) drawGoal(p);
+
+    if (config.draw_tooltip) drawTooltip(p);
   };
 
   const tooltip = document.getElementById("maze_tooltip");
@@ -380,6 +634,7 @@ const sketch = (p) => {
       document.getElementById("maze_tooltip").style.display = "none";
     }
   };
+  return p;
 };
 
 export function step(action) {
@@ -452,6 +707,11 @@ export function step(action) {
   const s = rc2stateId(agent.x, agent.y);
   const s2 = rc2stateId(agent.tx, agent.ty);
 
+
+  currentPath.push({
+    x: agent.x,
+    y: agent.y
+  });
   if (!isTest) {
     visitCount[s2] = (visitCount[s2] || 0) + 1;
   }
@@ -482,10 +742,28 @@ async function trainEpisode(episodeId = 0) {
     done = d;
 
     stepCount++;
+
     if (config.renderTrain) {
-      await new Promise(r => setTimeout(r, 10));// 延时10ms，使动画更清晰
+      await new Promise(r => setTimeout(r, config.renderSpeed));// 延时10ms，使动画更清晰
     }
   }
+  if (done || stepCount >= config.maxSteps) {
+    if (!isTest) {
+      episodePaths.push([...currentPath]);
+      for (let i = 1; i < currentPath.length; i++) {
+        addEdge(currentPath[i - 1], currentPath[i]);
+      }
+      // 只保留最近20条
+      if (episodePaths.length > 20) {
+        for (let i = 1; i < episodePaths[0].length; i++) {
+          addEdge(episodePaths[0][i - 1], episodePaths[0][i], -1);
+        }
+        episodePaths.shift(); // 删除最旧的一条
+      }
+    }
+    currentPath = [];
+  }
+
   let record = {
     episode: episodeId,
     steps: stepCount,
@@ -505,6 +783,11 @@ export async function train() {
   for (config.currentEpisode = 0; config.currentEpisode < config.trainEpisodes; config.currentEpisode++) {
     if (config.stop) break;
     await trainEpisode(config.currentEpisode);
+    if (config.currentEpisode === config.trainEpisodes - 1) {
+      await new Promise(r => setTimeout(r, config.renderSpeed));
+    } else if (!config.renderTrain && config.currentEpisode % config.EpRenderInterval === 0) {
+      await new Promise(r => setTimeout(r, config.renderSpeed));
+    }
   }
   alert("训练完成");
 }
@@ -526,7 +809,7 @@ export async function test() {
 
     stepCount++;
 
-    await new Promise(r => setTimeout(r, 10));// 延时10ms，使动画更清晰
+    await new Promise(r => setTimeout(r, config.renderSpeed));// 延时10ms，使动画更清晰
   }
   isTest = false
   alert("测试完成,总步数：" + stepCount + ",是否到达终点：" + done);
@@ -541,6 +824,10 @@ export function fresh() {
   resetAgent();
   //重置可视化
   resetVis();
+
+  episodePaths = [];
+  currentPath = [];
+  edgeWeight = {}
 }
 //重置智能体
 export function resetAgent() {
@@ -560,6 +847,10 @@ export function resetAgent() {
   config.currentEpisode = 0;
 
   isTest = false
+
+  episodePaths = [];
+  currentPath = [];
+  edgeWeight = {};
 }
 
 
@@ -574,12 +865,14 @@ export function reset() {
   };
   config.stop = false;
   resetVis();
+  currentPath = [];
 }
 //重置可视化
 export function resetVis() {
   hoverCell = null;
   hoverStartTime = 0;
   isTest = false
+
 }
 export function debug() {
   console.log(Q);
@@ -587,6 +880,14 @@ export function debug() {
 
 export function stopTrain() {
   config.stop = true;
+}
+export function restore() {
+  const new_config = structuredClone(initConfig);
+
+  Object.keys(new_config).forEach(k => {
+    config[k] = new_config[k];
+  });
+  alert("已恢复初始配置");
 }
 export function applyConfig() {
   const get = (id) => document.getElementById(id);
@@ -601,8 +902,14 @@ export function applyConfig() {
   get("cfgStepMode").onchange = (e) =>
     (config.stepMode = e.target.checked);
 
+  get("cfgHighRender").onchange = (e) =>
+    (config.high_render = e.target.checked);
+
   get("cfgEpisodes").oninput = (e) =>
     (config.trainEpisodes = +e.target.value);
+
+  get("cfgEpRenderInterval").oninput = (e) =>
+    (config.EpRenderInterval = +e.target.value);
 
   get("cfgMaxSteps").oninput = (e) =>
     (config.maxSteps = +e.target.value);
@@ -623,5 +930,5 @@ export function applyConfig() {
     (config.epsilon = +e.target.value);
 }
 
-new p5(sketch);
+let P = new p5(sketch);
 
