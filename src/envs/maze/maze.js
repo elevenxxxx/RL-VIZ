@@ -63,6 +63,25 @@ export const config = new Proxy(structuredClone(initConfig), {
     return true;
   }
 });
+const init_Agentinfo = {
+  Qagent_s: rc2stateId(1, 1),
+  Qagent_a: -1,
+  Qagent_r: 0,
+  Qagent_qs: rc2stateId(1, 1),
+};
+export const Agentinfo = new Proxy(structuredClone(init_Agentinfo), {
+  set(target, key, value) {
+    target[key] = value;
+
+    // 触发UI更新
+    if (key === "Qagent_s" || key === "Qagent_a" || key === "Qagent_r" || key === "Qagent_qs") {
+      notify(key, value);
+    }
+
+    return true;
+  }
+});
+
 const watchers = {};
 
 export function watch(key, fn) {
@@ -76,12 +95,13 @@ function notify(key, value) {
   }
 }
 let grid = [];
-let agent;
+let agent = {};
 let start;
 let goal;
 let Q = {};//存储Q值
 let QTrace = {};//存储附加信息
 let visitCount = {};//存储访问次数
+let Qactive = {}
 
 let records = [];//存储训练信息
 
@@ -169,12 +189,25 @@ function drawTooltip(p) {
   const actions = ["↑", "↓", "←", "→"];
 
   let html = `<b>${s}</b><br/>`;
+  html += `
+    <div style="
+        font-size: 20px;
+        font-family: 'Times New Roman', serif;
+    ">
+        Q(s,a) += α[r + γ max_a' Q(s',a') − Q(s,a)]
+    </div>
+`;
 
   for (let i = 0; i < 4; i++) {
-    html += `<div style="font-size:18px;">${actions[i]}: ${q[i].toFixed(3)}</div>`;
+    html += `<div style="font-size:18px;">${i}${actions[i]}: ${q[i].toFixed(3)}</div>`;
+
+    let Qcolor = "#0ff";
+    if (s in Qactive && Qactive[s] == i) {
+      Qcolor = "#80fa4c";
+    }
 
     if (trace && trace[i]) {
-      html += `<div style="font-size:18px;color:#0ff">
+      html += `<div style="font-size:18px;color:${Qcolor}">
         ${trace[i].values}
       </div>`;
     }
@@ -197,19 +230,54 @@ function drawGoal(p) {
 }
 
 function drawAgent(p) {
-  agent.x = p.lerp(agent.x, agent.tx, 0.2);
-  agent.y = p.lerp(agent.y, agent.ty, 0.2);
+  const cx = agent.x * config.cellSize + config.cellSize / 2;
+  const cy = agent.y * config.cellSize + config.cellSize / 2;
+  const size = config.cellSize * 0.8;
 
-  p.fill(50, 150, 255);
-  p.circle(
-    agent.x * config.cellSize + config.cellSize / 2,
-    agent.y * config.cellSize + config.cellSize / 2,
-    config.cellSize * 0.6
-  );
+  let dir = agent.dir;
+
+  p.fill(100, 200, 255);
+  p.noStroke();
+
+  // ❗初始状态 → 圆
+  if (!dir) {
+    p.circle(cx, cy, size);
+    return;
+  }
+
+  p.beginShape();
+
+  if (dir === "right") {
+    p.vertex(cx + size / 2, cy);
+    p.vertex(cx - size / 2, cy - size / 3);
+    p.vertex(cx - size / 2, cy + size / 3);
+  }
+
+  else if (dir === "left") {
+    p.vertex(cx - size / 2, cy);
+    p.vertex(cx + size / 2, cy - size / 3);
+    p.vertex(cx + size / 2, cy + size / 3);
+  }
+
+  else if (dir === "down") {
+    p.vertex(cx, cy + size / 2);
+    p.vertex(cx - size / 3, cy - size / 2);
+    p.vertex(cx + size / 3, cy - size / 2);
+  }
+
+  else if (dir === "up") {
+    p.vertex(cx, cy - size / 2);
+    p.vertex(cx - size / 3, cy + size / 2);
+    p.vertex(cx + size / 3, cy + size / 2);
+  }
+
+  // agent.dir = dir;
+
+  p.endShape(p.CLOSE);
 }
 function drawPolicy(p) {
   p.textAlign(p.CENTER, p.CENTER);
-  p.textSize(18);
+  p.textSize(22);
   p.fill(30);
 
   for (let y = 0; y < config.rows; y++) {
@@ -427,6 +495,31 @@ function drawCurrentPath(p) {
 
   p.pop();
 }
+function initQTable() {
+  const el = document.getElementById("QTable");
+
+  const actions = ["↑", "↓", "←", "→"];
+
+  let html = `
+  <tr>
+    <th>a\\Q</th>
+    <th id="q_sa">Q(s,a)</th>
+    <th id="q_s2a2">Q(s',a')</th>
+  </tr>
+  `;
+
+  for (let a = 0; a < 4; a++) {
+    html += `
+      <tr>
+        <th>${a}(${actions[a]})</th>
+        <td id="q_sa_${a}">0</td>
+        <td id="q_s2a_${a}">0</td>
+      </tr>
+    `;
+  }
+
+  el.innerHTML = html;
+}
 function addLoops(g, cols, rows, rate = 0.3) {
   for (let y = 1; y < rows - 1; y++) {
     for (let x = 1; x < cols - 1; x++) {
@@ -523,6 +616,10 @@ function addEdge(a, b, weight = 1) {
 function rc2stateId(x, y) {
   return `${x},${y}`;
 }
+function stateId2rc(stateId) {
+  const [x, y] = stateId.split(",");
+  return { x, y };
+}
 function getQTrace(s) {
   if (!QTrace[s]) {
     QTrace[s] = [
@@ -568,14 +665,33 @@ function updateQ(s, a, r, s2) {
   const trace = getQTrace(s);
 
   trace[a] = {
-    formula: `
-Q(s,a) = Q(s,a) + \\alpha [r + \\gamma \\max Q(s',a') - Q(s,a)]
-`,
     values: `
 = ${oldQ.toFixed(3)} + ${config.alpha} × (${r.toFixed(3)} + ${config.gamma} × ${maxNext.toFixed(3)} - ${oldQ.toFixed(3)})
 `,
     result: newQ.toFixed(3)
   };
+
+  Qactive[s] = a;
+
+  let qsrc = stateId2rc(s);
+  let qs2rc = stateId2rc(s2);
+
+  document.getElementById(`q_sa`).textContent = `Q(${qsrc.x}-${qsrc.y},a)`;
+  document.getElementById(`q_s2a2`).textContent = `Q(${qs2rc.x}-${qs2rc.y},a')`;
+  for (let i = 0; i < 4; i++) {
+    let Qcolor1 = "#e6e6e6";
+    if (s in Qactive && Qactive[s] == i) {
+      Qcolor1 = "#80fa4c";
+    }
+    let Qcolor2 = "#e6e6e6";
+    if (s2 in Qactive && Qactive[s2] == i) {
+      Qcolor2 = "#80fa4c";
+    }
+    document.getElementById(`q_sa_${i}`).textContent = q[i].toFixed(3);
+    document.getElementById(`q_sa_${i}`).style.color = Qcolor1;
+    document.getElementById(`q_s2a_${i}`).textContent = q2[i].toFixed(3);
+    document.getElementById(`q_s2a_${i}`).style.color = Qcolor2;
+  }
 }
 
 const sketch = (p) => {
@@ -637,8 +753,25 @@ const sketch = (p) => {
   };
   return p;
 };
+export function SingleStep() {
+  const s = rc2stateId(agent.x, agent.y);
+  const a = chooseAction(s);
+  const { s2, reward, done: d } = step(a);
 
-export function step(action) {
+  Agentinfo.Qagent_s = s;
+  Agentinfo.Qagent_a = a;
+  Agentinfo.Qagent_r = reward;
+  Agentinfo.Qagent_qs = s2;
+
+  if (config.stepMode) {
+    updateQ(s, a, reward, s2);
+  }
+
+  if (d) {
+    alert("end");
+  }
+}
+function step(action) {
   if (
     action === undefined ||
     action === null ||
@@ -658,7 +791,22 @@ export function step(action) {
   ];
 
   const [dx, dy] = dirs[action];
-
+  switch (action) {
+    case 0:
+      agent.dir = "up";
+      break;
+    case 1:
+      agent.dir = "down";
+      break;
+    case 2:
+      agent.dir = "left";
+      break;
+    case 3:
+      agent.dir = "right";
+      break;
+    default:
+      agent.dir = null;
+  }
   const nx = agent.x + dx;
   const ny = agent.y + dy;
 
@@ -716,11 +864,6 @@ export function step(action) {
   if (!isTest) {
     visitCount[s2] = (visitCount[s2] || 0) + 1;
   }
-
-  if (config.stepMode) {
-    updateQ(s, a, reward, s2);
-  }
-
   return { s, s2, reward, done };
 }
 
@@ -738,6 +881,11 @@ async function trainEpisode(episodeId = 0) {
     const { s2, reward, done: d } = step(a);
     totalReward += reward;
     updateQ(s, a, reward, s2);
+
+    Agentinfo.Qagent_s = s;
+    Agentinfo.Qagent_a = a;
+    Agentinfo.Qagent_r = reward;
+    Agentinfo.Qagent_qs = s2;
 
     s = s2;
     done = d;
@@ -839,10 +987,12 @@ export function resetAgent() {
     ty: start.y,
     prevX: start.x,
     prevY: start.y,
+    dir: null,
   };
   Q = {}
   visitCount = {}
   QTrace = {}
+  Qactive = {}
   records = []
   config.stop = false;
   config.currentEpisode = 0;
@@ -852,6 +1002,13 @@ export function resetAgent() {
   episodePaths = [];
   currentPath = [];
   edgeWeight = {};
+
+  const new_Agentinfo = structuredClone(init_Agentinfo);
+  Object.keys(new_Agentinfo).forEach(k => {
+    Agentinfo[k] = new_Agentinfo[k];
+  });
+
+  initQTable();
 }
 
 
@@ -863,7 +1020,14 @@ export function reset() {
     ty: start.y,
     prevX: start.x,
     prevY: start.y,
+    dir: null,
   };
+
+  const new_Agentinfo = structuredClone(init_Agentinfo);
+  Object.keys(new_Agentinfo).forEach(k => {
+    Agentinfo[k] = new_Agentinfo[k];
+  });
+
   config.stop = false;
   resetVis();
   currentPath = [];
@@ -873,7 +1037,7 @@ export function resetVis() {
   hoverCell = null;
   hoverStartTime = 0;
   isTest = false
-
+  Qactive = {}
 }
 export function debug() {
   console.log(Q);
@@ -905,6 +1069,11 @@ export function applyConfig() {
 
   get("cfgHighRender").onchange = (e) =>
     (config.high_render = e.target.checked);
+
+  get("cfgShowPath").onchange = (e) => {
+    config.draw_current_path = e.target.checked
+    config.draw_paths = e.target.checked
+  }
 
   get("cfgEpisodes").oninput = (e) =>
     (config.trainEpisodes = +e.target.value);
