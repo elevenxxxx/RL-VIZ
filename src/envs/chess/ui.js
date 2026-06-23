@@ -1,7 +1,7 @@
-import { Game } from "./env.js";
-import { piece2id, rc2num, num2rc, encode_action } from "./utils.js";
-import { Agent } from "./agent.js";
-import { drawlineGraph } from "./graph.js";
+const { Game } = await import("./env.js");
+const { piece2id, rc2num, num2rc, encode_action } = await import("./utils.js");
+const { Agent } = await import("./agent.js");
+const { drawlineGraph } = await import("./graph.js");
 
 const env = new Game();
 let agent = new Agent(env);

@@ -1,4 +1,5 @@
-import p5 from "p5";
+const p5Module = await import("https://cdn.jsdelivr.net/npm/p5@1.9.0/+esm");
+const p5 = p5Module.default;
 
 // export const config = {
 //   cols: 25,// 必须奇数

@@ -1,6 +1,6 @@
 import * as tf from "@tensorflow/tfjs";
-import { encode_state } from "./utils.js";
-import { drawlineGraph } from "./graph.js";
+const { encode_state } = await import("./utils.js");
+const { drawlineGraph } = await import("./graph.js");
 class ActorNet {
   constructor(stateDim, hiddenDim = 256, actionDim = 1) {
     this.fc1 = tf.layers.dense({
