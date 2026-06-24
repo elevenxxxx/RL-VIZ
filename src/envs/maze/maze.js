@@ -1,6 +1,6 @@
 const p5Module = await import("https://cdn.jsdelivr.net/npm/p5@1.9.0/+esm");
 const p5 = p5Module.default;
-
+const { setStepRender } = await import("./steps.js");
 // export const config = {
 //   cols: 25,// 必须奇数
 //   rows: 25,
@@ -38,6 +38,9 @@ const initConfig = {
   alpha: 0.1,//学习率
   gamma: 0.95,//折扣因子 对未来奖励的影响程度
   epsilon: 0.1,//探索率
+
+  now_train_step: 0,
+  now_test_step: 0,
 
   draw_maze: true,
   draw_heatmap: true,
@@ -640,7 +643,7 @@ function getQ(s) {
 function chooseAction(s) {
   const q = getQ(s);
 
-  if (Math.random() < config.epsilon) {
+  if (!isTest && Math.random() < config.epsilon) {
     return Math.floor(Math.random() * 4);
   }
 
@@ -760,6 +763,31 @@ const sketch = (p) => {
   };
   return p;
 };
+export async function stepRender() {
+  if (config.stepMode) {
+    RunStepFunctions[config.now_train_step]();
+    await setStepRender("train", config.now_train_step);
+  }
+  else {
+    await setStepRender("test", config.now_test_step);
+  }
+  config.now_train_step = (config.now_train_step + 1) % 3;
+  config.now_test_step = (config.now_test_step + 1) % 3;
+}
+const RunStepFunctions = {
+  0: RunStep0,
+  1: RunStep1,
+  2: RunStep2
+};
+function RunStep0() {
+
+}
+function RunStep1() {
+}
+function RunStep2() {
+}
+function RunStep3() {
+}
 export function SingleStep() {
   const s = rc2stateId(agent.x, agent.y);
   const a = chooseAction(s);

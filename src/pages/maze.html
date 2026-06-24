@@ -21,7 +21,7 @@
 
         #cfgQValue {
             position: absolute;
-            right: 230px;
+            right: 23px;
             top: 10px;
             width: 320px;
             height: 300px;
@@ -65,9 +65,11 @@
             min-height: 800px;
             padding: 80px 20px;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             flex: 1;
+
         }
 
         #maze_tooltip {
@@ -219,138 +221,106 @@
             margin-bottom: 10px;
         }
 
-        .step-container {
-            margin: 12px 0;
-            padding: 10px;
-            border-radius: 10px;
-            background: rgba(20, 20, 30, 0.4);
-        }
-
-        .step-title {
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #fff;
-        }
-
-        .step-flow {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .step-node {
-            position: relative;
-            padding: 8px 12px;
-            margin: 6px;
-            border-radius: 10px;
-            background: #2b2f3a;
-            color: #aaa;
-            font-size: 13px;
-            transition: 0.3s;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .step-node.active {
-            background: #4c8bf5;
-            color: #fff;
-            transform: scale(1.05);
-        }
-
-        /* ===== 动态连接线 ===== */
-        .step-node::after {
-            content: "";
+        #maze_steps {
             position: absolute;
-            top: 50%;
-            right: -18px;
-            width: 18px;
-            height: 2px;
-            background: repeating-linear-gradient(90deg,
-                    rgba(255, 255, 255, 0.8) 0px,
-                    rgba(255, 255, 255, 0.8) 4px,
-                    transparent 4px,
-                    transparent 8px);
-            animation: flow 0.8s linear infinite;
-        }
+            bottom: 100px;
+            right: 230px;
 
-        .step-node:last-child::after {
-            display: none;
-        }
+            /* z-index: 999; */
 
-        /* ===== 容器 ===== */
-        .flow {
-            margin: 12px 0;
-            padding: 12px;
+            backdrop-filter: blur(10px);
             border-radius: 12px;
-            background: rgba(20, 22, 30, 0.6);
+            width: 200px;
+            display: flex;
+            justify-content: center;
         }
 
-        /* ===== 标题 ===== */
+        .step-container {
+            padding: 12px 14px;
+            border-radius: 12px;
+
+            background: rgba(20, 22, 30, 0.75);
+            border: 1px solid rgba(120, 160, 255, 0.15);
+
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.35);
+        }
+
         .flow-title {
-            color: #fff;
-            font-weight: bold;
-            margin-bottom: 10px;
+            color: #cfe3ff;
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 14px;
+            letter-spacing: 0.5px;
         }
 
         /* ===== 主线 ===== */
-        .flow-row {
+        .flow-column {
             display: flex;
-            align-items: center;
-            flex-wrap: wrap;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 18px;
         }
 
-        /* ===== 节点 ===== */
         .flow-node {
             position: relative;
+
             padding: 8px 12px;
-            margin-right: 28px;
             border-radius: 10px;
+
             font-size: 13px;
-            color: #aaa;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: 0.3s;
+            color: #aab4c5;
+
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+
+            transition: all 0.25s ease;
+
+            cursor: pointer;
         }
 
-        /* ===== 累积高亮 ===== */
+        .flow-node:hover {
+            transform: translateX(4px) scale(1.02);
+            background: rgba(120, 170, 255, 0.12);
+            color: #ffffff;
+            border-color: rgba(120, 170, 255, 0.35);
+        }
+
         .flow-node.active {
             color: #fff;
             background: linear-gradient(135deg, #4c8bf5, #6ea8ff);
-            box-shadow: 0 0 12px rgba(76, 139, 245, 0.6);
-            transform: scale(1.05);
+            box-shadow: 0 0 14px rgba(76, 139, 245, 0.5);
         }
 
-        /* ===== 已完成状态 ===== */
         .flow-node.done {
-            color: #e6f0ff;
-            background: rgba(76, 139, 245, 0.25);
+            color: #dbe7ff;
+            background: rgba(76, 139, 245, 0.18);
         }
 
         /* ===== >>>>> 动态流动箭头 ===== */
         .flow-node::after {
-            content: ">>>>>";
-
+            content: "↓";
             position: absolute;
-            right: -30px;
-            top: 50%;
-            transform: translateY(-50%);
 
-            font-size: 12px;
-            letter-spacing: 2px;
+            left: 50%;
+            bottom: -18px;
 
-            color: rgba(255, 255, 255, 0.2);
+            transform: translateX(-50%);
+
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.25);
         }
 
         /* active时箭头动画 */
         .flow-node.active::after {
             color: #4c8bf5;
-            animation: flowMove 0.8s linear infinite;
+            animation: flowDown 0.8s linear infinite;
         }
 
-        /* 流动动画（像能量流） */
-        @keyframes flowMove {
+
+        @keyframes flowDown {
             0% {
                 opacity: 0.2;
-                transform: translateY(-50%) translateX(0);
+                transform: translateX(-50%) translateY(0);
             }
 
             50% {
@@ -359,7 +329,7 @@
 
             100% {
                 opacity: 0.2;
-                transform: translateY(-50%) translateX(6px);
+                transform: translateX(-50%) translateY(6px);
             }
         }
 
@@ -395,7 +365,9 @@
             <span class="maze_v" id="cfgQagent_qs">s'(下一状态): 0,0</span>
             <textarea class="maze_v" id="cfgQValue"></textarea>
             <span id="maze_tooltip"></span>
-
+            <div id="maze_steps">
+                <div id="maze_Steps" class="step-container"></div>
+            </div>
         </div>
 
         <div id="controls">
@@ -405,8 +377,9 @@
 
             <button id="trainBtn">训练</button>
             <button id="stepTrainBtn">训练一轮</button>
-            <button id="stopBtn">停止训练</button>
+            <button id="stopBtn">中止训练</button>
             <button id="stepBtn">下一步</button>
+            <button id="stepRenderBtn">分阶段步进</button>
             <button id="testBtn">测试</button>
 
             <button id="debugBtn">打印Q表</button>
@@ -497,10 +470,7 @@
 
     </div>
     <div id="maze_explainer">
-        <div id="maze_steps">
-            <div id="maze_trainSteps" class="step-container"></div>
-            <div id="maze_testSteps" class="step-container"></div>
-        </div>
+
         <div id="maze_explainer_text">
 
         </div>
@@ -512,9 +482,8 @@
     <script type="module">
         import {
             reset, train, test, SingleStep, debug, resetAgent, fresh, applyConfig, stepTrainEpisode, config, stopTrain,
-            restore, watch
+            restore, watch, stepRender
         } from "/src/envs/maze/maze.js";
-        import { setStep } from "/src/envs/maze/steps.js";
 
         document.getElementById('resetBtn').addEventListener('click', reset);
         document.getElementById('trainBtn').addEventListener('click', train);
@@ -525,6 +494,7 @@
         document.getElementById('resetAgentBtn').addEventListener('click', resetAgent);
         document.getElementById('fresh').addEventListener('click', fresh);
         document.getElementById('stepTrainBtn').addEventListener('click', stepTrainEpisode);
+        document.getElementById('stepRenderBtn').addEventListener('click', stepRender);
         document.getElementById('stopBtn').addEventListener('click', stopTrain);
         document.getElementById('restoreBtn').addEventListener('click', restore);
 
@@ -576,7 +546,7 @@
                 document.getElementById("cfgQagent_r").style.display = "block";
                 document.getElementById("cfgQagent_qs").style.display = "block";
                 document.getElementById("QTable").style.display = "block";
-                document.getElementById("cfgQValue").style.display = "block";
+                //document.getElementById("cfgQValue").style.display = "block";
                 document.getElementById("maze_formula").style.display = "flex";
             } else {
                 document.getElementById("cfgQagent_s").style.display = "none";
@@ -736,11 +706,25 @@
 `;
 
         window.MathJax.typesetPromise();
+        const tooltip = document.getElementById("maze_tooltip");
 
-        setStep("train", 0);
-        setStep("train", 1);
-        setStep("test", 0);
+        document.addEventListener("mousemove", (e) => {
+            const node = e.target.closest(".flow-node");
 
+            if (!node) {
+                tooltip.style.display = "none";
+                return;
+            }
+
+            const text = node.dataset.info;
+
+            tooltip.innerHTML = text;
+
+            tooltip.style.left = (e.pageX + 12) + "px";
+            tooltip.style.top = (e.pageY + 12) + "px";
+
+            tooltip.style.display = "block";
+        });
     </script>
 
 </body>
