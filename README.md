@@ -13,7 +13,7 @@ An Attempt at Reinforcement Learning Visualization
 npm install
 ```
 
-# Run 
+## Run 
 ```powershell
 npm run dev
 # or
