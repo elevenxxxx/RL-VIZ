@@ -154,6 +154,69 @@ class Board {
         return state;
     }
 
+    clone() {
+        const next = new Board();
+        next.pieces = this.pieces.map(p => new Piece(p.r, p.c, p.t, p.p, p.id));
+        return next;
+    }
+
+    isInCheck(side) {
+        const kingType = side === "red" ? "帅" : "将";
+        const king = this.pieces.find(p => p.p === side && p.t === kingType);
+
+        if (!king) return true;
+
+        for (let piece of this.pieces) {
+            if (piece.p === side) continue;
+            const moves = this.getLegalMoves(piece);
+
+            if (moves.some(m => m.r === king.r && m.c === king.c)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    getAllLegalMoves(side, strict = true) {
+        const moves = [];
+        const pieces = this.pieces.filter(p => p.p === side);
+
+        for (let piece of pieces) {
+            const candidates = this.getLegalMoves(piece);
+
+            for (let move of candidates) {
+                if (!strict) {
+                    moves.push({
+                        pieceId: piece.id,
+                        fromR: piece.r,
+                        fromC: piece.c,
+                        toR: move.r,
+                        toC: move.c,
+                    });
+                    continue;
+                }
+
+                const nextBoard = this.clone();
+                const nextPiece = nextBoard.getPbyId(piece.id);
+                const [ok] = nextBoard.move(nextPiece, move.r, move.c);
+
+                if (!ok) continue;
+                if (nextBoard.isInCheck(side)) continue;
+
+                moves.push({
+                    pieceId: piece.id,
+                    fromR: piece.r,
+                    fromC: piece.c,
+                    toR: move.r,
+                    toC: move.c,
+                });
+            }
+        }
+
+        return moves;
+    }
+
     //车
     rook(p) {
         let res = [];
@@ -246,12 +309,14 @@ class Board {
     pawn(p) {
         let res = [];
         const dir = p.p === "red" ? -1 : 1;
-
-        const forward = this.get(p.r + dir, p.c);
-        //前方没有棋子，直接走
-        if (!forward && p.r + dir > 0) res.push({ r: p.r + dir, c: p.c });
-        //前方有棋子，只能吃掉对方的棋子
-        if (forward && forward.p !== p.p) res.push({ r: p.r + dir, c: p.c });
+        const nextR = p.r + dir;
+        if (nextR >= 0 && nextR <= 9) {
+            const forward = this.get(nextR, p.c);
+            //前方没有棋子，直接走
+            if (!forward) res.push({ r: nextR, c: p.c });
+            //前方有棋子，只能吃掉对方的棋子
+            if (forward && forward.p !== p.p) res.push({ r: nextR, c: p.c });
+        }
 
         if ((p.p === "red" && p.r <= 4) || (p.p === "black" && p.r >= 5)) {
             for (let dc of [-1, 1]) {
@@ -387,7 +452,7 @@ export class Game {
         this.render_mode = "render";
         this.initEvents();
         this.render();
-        this.enemy_ai = new EnemyAi();
+        this.enemy_ai = new EnemyAi(2);
         this.redlegalX = [[0, 187]];//红方合法动作编号
         this.redalive = 188;//红方可行动动作集合和
     }
@@ -475,7 +540,8 @@ export class Game {
         }
 
         if (ok) {
-            const win = this.checkWin();
+            const nextTurn = this.turn === "red" ? "black" : "red";
+            const win = this.checkWin(nextTurn);
 
             if (win) {
                 if (this.render_mode == "render")
@@ -485,7 +551,7 @@ export class Game {
                 return;
             }
 
-            this.turn = this.turn === "red" ? "black" : "red";
+            this.turn = nextTurn;
             //敌方走子
             if (this.turn === "black")
                 setTimeout(() => this.reflect(), 300);
@@ -528,7 +594,8 @@ export class Game {
         const [ok, is_eat] = this.board.move(p, n_r, n_c);
         // console.log("我方移动结果:", ok, is_eat);
         if (!ok) return [false, initMap, 0, false, false];//非法动作
-        const win1 = this.checkWin();
+        const nextTurn = this.turn === "red" ? "black" : "red";
+        const win1 = this.checkWin(nextTurn);
         if (win1) {
             if (win1 === "red") {
                 console.info("red win!");
@@ -548,7 +615,7 @@ export class Game {
             this.render();
         }
 
-        this.turn = this.turn === "red" ? "black" : "red";
+        this.turn = nextTurn;
         //敌方走子
         if (this.turn !== "black") {
             console.error("The turn is not black!")
@@ -656,61 +723,52 @@ export class Game {
     }
 
     // 胜负判断
-    checkWin() {
+    checkWin(side = this.turn) {
         const redKing = this.board.pieces.find(p => p.p === "red" && p.t === "帅");
         const blackKing = this.board.pieces.find(p => p.p === "black" && p.t === "将");
 
         if (!redKing) return "black";
         if (!blackKing) return "red";
 
-        // 检查当前玩家是否还有合法走法
-        for (let p of this.board.pieces) {
-            if (p.p !== this.turn) continue;
-
-            const moves = this.board.getLegalMoves(p);
-            // console.log("moves:", moves);
-
-            if (moves && moves.length > 0) {
-                return null; // 还有棋可走
-            }
+        const moves = this.board.getAllLegalMoves(side);
+        if (moves.length > 0) {
+            return null;
         }
 
-        // 没有任何合法走法 → 当前玩家失败
-        return this.turn === "red" ? "black" : "red";
+        return side === "red" ? "black" : "red";
     }
     //敌方AI步进
     reflect(is_auto_end = true) {
-        let m_piece = [];
         if (this.turn != "black") {
             console.log("error:turn is not black!")
             this.reset();
             return [false, false];
         }
-        m_piece = this.board.pieces.filter(p => p.p === this.turn);
 
-        let moves = []
-        let p = null
-        let m = null
+        const move = this.enemy_ai.chooseMove(this.board, this.turn);
+        if (!move) {
+            const win = this.checkWin();
 
-        //接入敌方AI
-        //black_state=this.board.pieces;
-        //action=enemy_ai.step(black_state);
+            if (win) {
+                if (this.render_mode == "render")
+                    console.info(win + " win!");
 
-        //随机选择一个棋子执行一个动作
-        //直到有路可走为止
-        while (moves.length === 0) {
-            p = m_piece[Math.floor(Math.random() * m_piece.length)];
-            moves = this.board.getLegalMoves(p);
-            m = moves[Math.floor(Math.random() * moves.length)];//{r,c}
+                if (is_auto_end) {
+                    this.reset();
+                }
+            }
+            return [false, -1];
         }
 
-        const [ok, is_eat] = this.board.move(p, m.r, m.c);
+        const piece = this.board.getPbyId(move.pieceId);
+        const [ok, is_eat] = this.board.move(piece, move.toR, move.toC);
         if (this.render_mode == "render") {
             this.render();
         }
         if (ok) {
-            const win = this.checkWin();
-            this.turn = this.turn === "red" ? "black" : "red";
+            const nextTurn = this.turn === "red" ? "black" : "red";
+            const win = this.checkWin(nextTurn);
+            this.turn = nextTurn;
             if (win) {
                 if (this.render_mode == "render")
                     console.info(win + " win!");
