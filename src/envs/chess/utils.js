@@ -453,17 +453,14 @@ const W = 9;
 const C = 14;
 const SIZE = H * W * C;
 
-// 预分配（关键）
-const buffer = new Float32Array(SIZE);
-
 export function encode_state(state) {
-  buffer.fill(0);
+  const buffer = new Float32Array(SIZE);
 
   for (let i = 0; i < state.length; i++) {
     const pos = state[i];
     if (pos === 90) continue;
 
-    const { r, c } = num2rc(pos);
+    const [r, c] = num2rc(pos);
     const type = getPieceTypeById(i);
 
     const idx = (r * W + c) * C + type;

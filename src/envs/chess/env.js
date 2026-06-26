@@ -1,5 +1,5 @@
 import { EnemyAi } from "./enemy_ai.js";
-import { initMap, decode_action, num2rc, rc2num, id2piece, getXbyId } from "./utils.js";
+import { initMap, decode_action, num2rc, rc2num, id2piece, getXbyId, encode_action } from "./utils.js";
 // 棋子
 class Piece {
     constructor(r, c, t, p, id) {
@@ -452,9 +452,17 @@ export class Game {
         this.render_mode = "render";
         this.initEvents();
         this.render();
-        this.enemy_ai = new EnemyAi(2);
+        this.enemy_ai = new EnemyAi(1);
         this.redlegalX = [[0, 187]];//红方合法动作编号
         this.redalive = 188;//红方可行动动作集合和
+        this.totalActions = 188;
+        this.previousActionIndex = null;
+        this.sameActionStreak = 0;
+        this.recentStateHashes = [];
+        this.maxRecentStates = 10;
+        this.recentRedMoves = [];
+        this.maxRecentRedMoves = 4;
+        this.lastTransitionMeta = null;
     }
     removeX(l, r) {
         const res = [];
@@ -498,6 +506,241 @@ export class Game {
 
         console.log(`Fail to find legal action,S:${S},redalive:${this.redalive},redlegalX:${this.redlegalX}`);
         return -1;
+    }
+
+    moveToActionId(move) {
+        const piece = this.board.getPbyId(move.pieceId);
+        if (!piece) return -1;
+
+        const target = this.board.get(move.toR, move.toC);
+        const isFlyingKing =
+            (piece.t === "帅" || piece.t === "将") &&
+            target &&
+            (target.t === "将" || target.t === "帅") &&
+            target.p !== piece.p &&
+            piece.c === move.toC;
+
+        if (isFlyingKing) {
+            return encode_action([move.pieceId, 0]);
+        }
+
+        const offset = rc2num(move.toR, move.toC) - rc2num(move.fromR, move.fromC);
+
+        try {
+            return encode_action([move.pieceId, offset]);
+        } catch {
+            return -1;
+        }
+    }
+
+    getLegalActionEntries(side = "red") {
+        const moves = this.board.getAllLegalMoves(side);
+        const entries = [];
+
+        for (const move of moves) {
+            const actionId = this.moveToActionId(move);
+            if (actionId < 0) continue;
+
+            entries.push({
+                actionId,
+                move,
+            });
+        }
+
+        return entries;
+    }
+
+    getLegalActionIds(side = "red") {
+        return this.getLegalActionEntries(side).map((entry) => entry.actionId);
+    }
+
+    stateToHash(state = this.board.board2State()) {
+        return state.join(",");
+    }
+
+    rememberStateHash(stateHash) {
+        this.recentStateHashes.push(stateHash);
+        if (this.recentStateHashes.length > this.maxRecentStates) {
+            this.recentStateHashes.shift();
+        }
+    }
+
+    getRepeatStateInfo(stateHash) {
+        const previousCount = this.recentStateHashes.filter((hash) => hash === stateHash).length;
+        const occurrence = previousCount + 1;
+
+        if (occurrence >= 4) {
+            return { penalty: -0.6, occurrence, forceTruncated: false };
+        }
+        if (occurrence === 3) {
+            return { penalty: -0.3, occurrence, forceTruncated: false };
+        }
+        if (occurrence === 2) {
+            return { penalty: -0.1, occurrence, forceTruncated: false };
+        }
+
+        return { penalty: 0, occurrence, forceTruncated: false };
+    }
+
+    getMaterialAdvantageReward(state) {
+        const materialValue = {
+            "兵": 1,
+            "卒": 1,
+            "马": 3,
+            "炮": 3,
+            "车": 5,
+        };
+
+        let redMaterial = 0;
+        let blackMaterial = 0;
+
+        for (let i = 0; i < state.length; i++) {
+            if (state[i] === 90) continue;
+
+            const [color, piece] = id2piece(i);
+            const value = materialValue[piece] || 0;
+            if (color === "red") redMaterial += value;
+            else blackMaterial += value;
+        }
+
+        return (redMaterial - blackMaterial) * 0.01;
+    }
+
+    getThreatenedRedKeyPieces(board) {
+        const threatWeight = {
+            "车": 1.0,
+            "马": 0.6,
+            "炮": 0.6,
+        };
+        const threatened = new Map();
+        const blackMoves = board.getAllLegalMoves("black", false);
+
+        for (const move of blackMoves) {
+            const target = board.get(move.toR, move.toC);
+            if (!target || target.p !== "red") continue;
+
+            const weight = threatWeight[target.t];
+            if (!weight) continue;
+            threatened.set(target.id, Math.max(threatened.get(target.id) || 0, weight));
+        }
+
+        let totalScore = 0;
+        for (const value of threatened.values()) {
+            totalScore += value;
+        }
+
+        return {
+            score: totalScore,
+            threatenedPieceIds: new Set(threatened.keys()),
+        };
+    }
+
+    getTacticalSafetyPenalty(exposureBefore, exposureAfter, movedPieceId) {
+        const riskIncrease = Math.max(0, exposureAfter.score - exposureBefore.score);
+        let penalty = Math.min(1.0, riskIncrease);
+
+        if (exposureAfter.threatenedPieceIds.has(movedPieceId) && !exposureBefore.threatenedPieceIds.has(movedPieceId)) {
+            penalty = Math.min(1.0, penalty + 0.2);
+        }
+
+        return penalty > 0 ? -penalty : 0;
+    }
+
+    getRedAttackPressure(board) {
+        const attackWeight = {
+            "车": 1.0,
+            "马": 0.7,
+            "炮": 0.7,
+        };
+        const threatened = new Map();
+        const redMoves = board.getAllLegalMoves("red", false);
+
+        for (const move of redMoves) {
+            const target = board.get(move.toR, move.toC);
+            if (!target || target.p !== "black") continue;
+
+            const weight = attackWeight[target.t];
+            if (!weight) continue;
+            threatened.set(target.id, Math.max(threatened.get(target.id) || 0, weight));
+        }
+
+        let score = 0;
+        for (const value of threatened.values()) {
+            score += value;
+        }
+        return {
+            score,
+            targetCount: threatened.size,
+        };
+    }
+
+    getClosestBlackKeyPieceDistance(board, pieceId) {
+        const piece = board.getPbyId(pieceId);
+        if (!piece) return Infinity;
+
+        const targets = board.pieces.filter((candidate) =>
+            candidate.p === "black" && ["将", "车", "马", "炮"].includes(candidate.t)
+        );
+        if (targets.length === 0) return Infinity;
+
+        let minDistance = Infinity;
+        for (const target of targets) {
+            const distance = Math.abs(piece.r - target.r) + Math.abs(piece.c - target.c);
+            if (distance < minDistance) minDistance = distance;
+        }
+        return minDistance;
+    }
+
+    getAttackPressureReward(boardBefore, boardAfter, movedPieceId) {
+        const pressureBefore = this.getRedAttackPressure(boardBefore);
+        const pressureAfter = this.getRedAttackPressure(boardAfter);
+        const pressureGain = Math.max(0, pressureAfter.score - pressureBefore.score);
+
+        const distanceBefore = this.getClosestBlackKeyPieceDistance(boardBefore, movedPieceId);
+        const distanceAfter = this.getClosestBlackKeyPieceDistance(boardAfter, movedPieceId);
+        const distanceGain = Number.isFinite(distanceBefore) && Number.isFinite(distanceAfter)
+            ? Math.max(0, distanceBefore - distanceAfter)
+            : 0;
+
+        const reward = Math.min(0.3, pressureGain * 0.15 + distanceGain * 0.05);
+        return reward > 0 ? reward : 0;
+    }
+
+    detectActionLoop(moveRecord) {
+        this.recentRedMoves.push(moveRecord);
+        if (this.recentRedMoves.length > this.maxRecentRedMoves) {
+            this.recentRedMoves.shift();
+        }
+        if (this.recentRedMoves.length < this.maxRecentRedMoves) {
+            return false;
+        }
+
+        const [m1, m2, m3, m4] = this.recentRedMoves;
+        const samePiece = [m1, m2, m3, m4].every((move) => move.pieceId === m1.pieceId);
+        if (!samePiece) return false;
+
+        const uniqueSquares = new Set([m1.from, m1.to, m2.from, m2.to, m3.from, m3.to, m4.from, m4.to]);
+        if (uniqueSquares.size !== 2) return false;
+
+        return (
+            m1.from === m3.from &&
+            m1.to === m3.to &&
+            m2.from === m4.from &&
+            m2.to === m4.to &&
+            m1.from === m2.to &&
+            m1.to === m2.from
+        );
+    }
+
+    chooseBlackMove() {
+        const legalMoves = this.board.getAllLegalMoves(this.turn);
+        if (legalMoves.length === 0) return null;
+
+        if (Math.random() < 0.5) {
+            return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+        }
+
+        return this.enemy_ai.chooseMove(this.board, this.turn) || legalMoves[0];
     }
 
     //我方步进
@@ -566,12 +809,16 @@ export class Game {
     //我方步进（非点击）
     //[step_success,next_state,reward,terminated,truncated]
     async step(actionIndex, interval = 0) {
+        const previousAction = this.previousActionIndex;
+        const boardBeforeMove = this.board.clone();
+        const exposureBefore = this.getThreatenedRedKeyPieces(boardBeforeMove);
         let action_list = decode_action(actionIndex);
         //console.log("env_step:", action_list);
         let p = this.board.getPbyId(action_list[0]);
         if (!p) return [false, initMap, 0, false, false];//棋子已阵亡
 
         let n_r, n_c, is_fly;
+        const fromNum = rc2num(p.r, p.c);
 
         if (action_list[1] == 0) {
             if (p.id != 0) return [false, initMap, 0, false, false];
@@ -594,22 +841,74 @@ export class Game {
         const [ok, is_eat] = this.board.move(p, n_r, n_c);
         // console.log("我方移动结果:", ok, is_eat);
         if (!ok) return [false, initMap, 0, false, false];//非法动作
+        this.previousActionIndex = actionIndex;
+        this.sameActionStreak = previousAction !== null && previousAction === actionIndex
+            ? this.sameActionStreak + 1
+            : 1;
+        const repeatedActionPenalty = this.sameActionStreak >= 3 ? -0.2 : 0;
+        const toNum = rc2num(n_r, n_c);
+        const actionLoopTriggered = this.detectActionLoop({
+            pieceId: p.id,
+            from: fromNum,
+            to: toNum,
+        });
+        const actionLoopPenalty = actionLoopTriggered ? -0.3 : 0;
         const nextTurn = this.turn === "red" ? "black" : "red";
         const win1 = this.checkWin(nextTurn);
         if (win1) {
+            const terminalState = this.board.board2State();
+            const terminalHash = this.stateToHash(terminalState);
             if (win1 === "red") {
                 console.info("red win!");
                 this.episode++;
+                this.lastTransitionMeta = {
+                    previousAction,
+                    stateHash: terminalHash,
+                    viewerState: terminalState.slice(),
+                    eatReward: is_eat >= 0 ? this.getEatReward(is_eat) : 0,
+                    materialReward: this.getMaterialAdvantageReward(terminalState),
+                    repeatStatePenalty: 0,
+                    repeatedActionPenalty,
+                    actionLoopPenalty,
+                    tacticalSafetyPenalty: 0,
+                    attackPressureReward: 0,
+                    totalReward: 100,
+                    terminated: true,
+                    truncated: false,
+                    doneType: "terminated",
+                    bootstrapState: null,
+                };
                 return [true, initMap, 100, true, false];
             }
             if (win1 === "black") {
                 console.info("black win!");
                 this.episode++;
+                this.lastTransitionMeta = {
+                    previousAction,
+                    stateHash: terminalHash,
+                    viewerState: terminalState.slice(),
+                    eatReward: is_eat >= 0 ? this.getEatReward(is_eat) : 0,
+                    materialReward: this.getMaterialAdvantageReward(terminalState),
+                    repeatStatePenalty: 0,
+                    repeatedActionPenalty,
+                    actionLoopPenalty,
+                    tacticalSafetyPenalty: 0,
+                    attackPressureReward: 0,
+                    totalReward: -100,
+                    terminated: true,
+                    truncated: false,
+                    doneType: "terminated",
+                    bootstrapState: null,
+                };
                 return [true, initMap, -100, true, false];
             }
             console.error("checkWin return unknown:", win1);
             return [false, initMap, 0, false, false];
         }
+
+        const exposureAfterRedMove = this.getThreatenedRedKeyPieces(this.board);
+        const tacticalSafetyPenalty = this.getTacticalSafetyPenalty(exposureBefore, exposureAfterRedMove, p.id);
+        const attackPressureReward = this.getAttackPressureReward(boardBeforeMove, this.board, p.id);
 
         if (this.render_mode == "render") {
             this.render();
@@ -627,14 +926,50 @@ export class Game {
         const [_, been_eat] = this.reflect(false);
         const win2 = this.checkWin();
         if (win2) {
+            const terminalState = this.board.board2State();
+            const terminalHash = this.stateToHash(terminalState);
             if (win2 === "red") {
                 console.info("red win!");
                 this.episode++;
+                this.lastTransitionMeta = {
+                    previousAction,
+                    stateHash: terminalHash,
+                    viewerState: terminalState.slice(),
+                    eatReward: (is_eat >= 0 ? this.getEatReward(is_eat) : 0) - (been_eat >= 0 ? this.getEatReward(been_eat) : 0),
+                    materialReward: this.getMaterialAdvantageReward(terminalState),
+                    repeatStatePenalty: 0,
+                    repeatedActionPenalty,
+                    actionLoopPenalty,
+                    tacticalSafetyPenalty,
+                    attackPressureReward,
+                    totalReward: 100,
+                    terminated: true,
+                    truncated: false,
+                    doneType: "terminated",
+                    bootstrapState: null,
+                };
                 return [true, initMap, 100, true, false];
             }
             if (win2 === "black") {
                 console.info("black win!");
                 this.episode++;
+                this.lastTransitionMeta = {
+                    previousAction,
+                    stateHash: terminalHash,
+                    viewerState: terminalState.slice(),
+                    eatReward: (is_eat >= 0 ? this.getEatReward(is_eat) : 0) - (been_eat >= 0 ? this.getEatReward(been_eat) : 0),
+                    materialReward: this.getMaterialAdvantageReward(terminalState),
+                    repeatStatePenalty: 0,
+                    repeatedActionPenalty,
+                    actionLoopPenalty,
+                    tacticalSafetyPenalty,
+                    attackPressureReward,
+                    totalReward: -100,
+                    terminated: true,
+                    truncated: false,
+                    doneType: "terminated",
+                    bootstrapState: null,
+                };
                 return [true, initMap, -100, true, false];
             }
             console.error("checkWin return unknown:", win2);
@@ -655,33 +990,59 @@ export class Game {
         if (is_eat >= 0) {
             reward += this.getEatReward(is_eat);
         }
-        if (this.episode > 15 && this.episode < 50) reward -= 0.4;
-        if (this.episode >= 50) reward -= 0.3;
-        //判断局势
-        if (this.episode % 3 == 0) {
-            let com = 0;
-            for (let i = 1; i <= 4; i++) {
-                //我方士、相
-                if (next_state[i] == 90) {
-                    if (this.episode < 40) reward -= 0.5;
-                    else reward -= 0.3;
-                }
-                //敌方仕、象
-                if (next_state[i + 16] == 90) {
-                    if (this.episode < 40) reward += 0.5;
-                    else reward += 0.3;
-                }
-                //我方炮、马
-                if (next_state[i + 16] == 90) com--;
-                //敌方炮、马
-                if (next_state[i + 16] == 90) com++;
-            }
-            if (next_state[5] == 90) com -= 2;
-            if (next_state[6] == 90) com -= 2;
-            if (next_state[21] == 90) com += 2;
-            if (next_state[22] == 90) com += 2;
-            reward += com;
+        const materialReward = this.getMaterialAdvantageReward(next_state);
+        reward += materialReward;
+        reward += tacticalSafetyPenalty;
+        reward += attackPressureReward;
+        reward += repeatedActionPenalty;
+        reward += actionLoopPenalty;
+
+        const stateHash = this.stateToHash(next_state);
+        const repeatStateInfo = this.getRepeatStateInfo(stateHash);
+        reward += repeatStateInfo.penalty;
+        this.rememberStateHash(stateHash);
+        if (repeatStateInfo.forceTruncated) {
+            truncated = true;
         }
+
+        reward = Math.max(-5, Math.min(5, reward));
+
+        if (!Array.isArray(next_state) || next_state.length !== 32 || !Number.isFinite(reward)) {
+            console.error("INVALID STEP OUTPUT", {
+                actionIndex,
+                next_state,
+                reward,
+                stateHash,
+                repeatedActionPenalty,
+                actionLoopPenalty,
+                tacticalSafetyPenalty,
+                attackPressureReward,
+                materialReward,
+            });
+            const fallbackState = this.board.board2State();
+            this.lastTransitionMeta = {
+                previousAction,
+                stateHash: this.stateToHash(fallbackState),
+                viewerState: fallbackState.slice(),
+                repeatStateOccurrence: repeatStateInfo.occurrence,
+                repeatedState: repeatStateInfo.occurrence >= 2,
+                eatReward: 0,
+                materialReward,
+                repeatStatePenalty: repeatStateInfo.penalty,
+                repeatedActionPenalty,
+                actionLoopTriggered,
+                actionLoopPenalty,
+                tacticalSafetyPenalty,
+                attackPressureReward,
+                totalReward: 0,
+                terminated: false,
+                truncated: true,
+                doneType: "truncated",
+                bootstrapState: fallbackState.slice(),
+            };
+            return [true, fallbackState, 0, false, true];
+        }
+
         if (this.episode % 50 == 0)
             console.log(`回合${this.episode},reward:${reward}`);
 
@@ -693,6 +1054,26 @@ export class Game {
             console.warn(`剩下区间长度:${this.redalive} 剩余合法区间： ${this.redlegalX}`);
         }
 
+        this.lastTransitionMeta = {
+            previousAction,
+            stateHash,
+            viewerState: next_state.slice(),
+            repeatStateOccurrence: repeatStateInfo.occurrence,
+            repeatedState: repeatStateInfo.occurrence >= 2,
+            eatReward: (is_eat >= 0 ? this.getEatReward(is_eat) : 0) - (been_eat >= 0 ? this.getEatReward(been_eat) : 0),
+            materialReward,
+            repeatStatePenalty: repeatStateInfo.penalty,
+            repeatedActionPenalty,
+            actionLoopTriggered,
+            actionLoopPenalty,
+            tacticalSafetyPenalty,
+            attackPressureReward,
+            totalReward: reward,
+            terminated: false,
+            truncated,
+            doneType: truncated ? "truncated" : "ongoing",
+            bootstrapState: truncated ? next_state.slice() : null,
+        };
         return [true, next_state, reward, false, truncated];
     }
     getEatReward(id) {
@@ -745,7 +1126,7 @@ export class Game {
             return [false, false];
         }
 
-        const move = this.enemy_ai.chooseMove(this.board, this.turn);
+        const move = this.chooseBlackMove();
         if (!move) {
             const win = this.checkWin();
 
@@ -790,6 +1171,12 @@ export class Game {
         this.episode = 0;
         this.redalive = 188;
         this.redlegalX = [[0, 187]];
+        this.previousActionIndex = null;
+        this.sameActionStreak = 0;
+        this.lastTransitionMeta = null;
+        this.recentStateHashes = [];
+        this.recentRedMoves = [];
+        this.rememberStateHash(this.stateToHash(initMap));
         if (this.render_mode == "render") {
             this.render();
         }
@@ -802,7 +1189,7 @@ export class Game {
         const ctx = this.ctx;
         ctx.clearRect(0, 0, 600, 670);
 
-        ctx.strokeStyle = "#333";
+        ctx.strokeStyle = "#5c4f42";
         for (let r = 0; r < 10; r++) {
             ctx.beginPath();
             ctx.moveTo(60, 60 + r * 60);
@@ -862,11 +1249,11 @@ export class Game {
 
             ctx.beginPath();
             ctx.arc(x, y, 22, 0, Math.PI * 2);
-            ctx.fillStyle = "#fff";
+            ctx.fillStyle = "#fffdf8";
             ctx.fill();
             ctx.stroke();
 
-            ctx.fillStyle = p.p === "red" ? "red" : "black";
+            ctx.fillStyle = p.p === "red" ? "#c75b5b" : "#505755";
             ctx.font = "20px KaiTi";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -878,8 +1265,10 @@ export class Game {
 
                 ctx.beginPath();
                 ctx.arc(x, y, 28, 0, Math.PI * 2);
-                ctx.strokeStyle = "#00AEEF";
+                ctx.strokeStyle = "#5F9EA0";
                 ctx.lineWidth = 4;
+                ctx.shadowColor = "rgba(95, 158, 160, 0.35)";
+                ctx.shadowBlur = 12;
                 ctx.stroke();
 
                 ctx.restore();
@@ -892,7 +1281,7 @@ export class Game {
 
         ctx.save();
 
-        ctx.fillStyle = "#8B5A2B"; // 深棕色更像木棋盘
+        ctx.fillStyle = "#8c6940";
         ctx.font = "30px KaiTi";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -914,7 +1303,7 @@ export class Game {
         const ctx = this.ctx
 
         ctx.beginPath();
-        ctx.strokeStyle = "#333";
+        ctx.strokeStyle = "#5c4f42";
         ctx.lineWidth = 2;
 
         // 左上角
@@ -947,7 +1336,7 @@ export class Game {
         const ctx = this.ctx;
 
         ctx.save();
-        ctx.fillStyle = "#333";
+        ctx.fillStyle = "#5c4f42";
 
         const drawDot = (x, y) => {
             ctx.beginPath();

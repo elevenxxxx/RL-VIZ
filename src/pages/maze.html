@@ -3,61 +3,95 @@
 
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="../styles/ink-theme.css" />
     <title>Maze RL Environment</title>
-    <!-- <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
     <!-- <script type="module" src="/src/envs/maze/maze.js"></script> -->
     <style>
         body {
-            margin: 0;
             display: flex;
             overflow-x: auto;
             overflow-y: auto;
             flex-direction: column;
-            height: 100%;
+            min-height: 100vh;
             position: relative;
+            padding: 24px;
         }
 
         #show {
             flex: 1;
-            margin: 0;
             display: flex;
             width: 100%;
+            gap: 24px;
             position: relative;
+            padding: 24px;
+            border-radius: 28px;
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(60, 70, 60, 0.08);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+            backdrop-filter: blur(12px);
         }
 
         #maze_info {
             position: absolute;
             top: 30px;
-            font-size: 20px;
+            left: 26px;
+            font-size: 18px;
+            color: var(--gold);
+            letter-spacing: 0.04em;
         }
 
         #game {
             min-height: 800px;
-            padding: 80px 20px;
-            display: flex;
-            justify-content: center;
+            padding: 80px 20px 24px;
+            display: grid;
+            grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
             align-items: center;
             flex: 1;
+            position: relative;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.52);
+            border: 1px solid rgba(60, 70, 60, 0.06);
+            overflow: auto;
+        }
+
+        #game canvas {
+            grid-column: 2;
+            justify-self: center;
+            max-width: 100%;
+            width: auto !important;
+            height: auto !important;
+            display: block;
         }
 
         #maze_tooltip {
             position: absolute;
-            background: rgba(0, 0, 0, 0.85);
-            color: white;
-            padding: 8px;
-            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.94);
+            color: var(--ink-text);
+            padding: 10px 12px;
+            border-radius: 12px;
             pointer-events: none;
             display: none;
             max-width: 400px;
             max-height: 300px;
             z-index: 999;
+            border: 1px solid rgba(60, 70, 60, 0.08);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
         }
 
         #controls {
-            width: 200px;
-            padding: 10px;
+            width: 316px;
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(60, 70, 60, 0.08);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+            backdrop-filter: blur(12px);
         }
 
         #maze_explainer {
@@ -65,31 +99,32 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            gap: 10px;
+            padding: 18px;
+            margin-top: 18px;
+            border: 1px solid rgba(60, 70, 60, 0.08);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.75);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
         }
 
         #maze_explainer_text {
             width: 70%;
-            font-size: 24px;
+            font-size: 20px;
+            color: var(--ink-text-soft);
         }
 
         #QTable {
             position: absolute;
             left: 10px;
             top: 80px;
-
-            background: rgba(20, 20, 30, 0.85);
-            color: #e6e6e6;
-
-            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.88);
+            color: var(--ink-text);
+            border-radius: 16px;
             padding: 10px;
-
             font-size: 16px;
-
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(60, 70, 60, 0.08);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
             backdrop-filter: blur(6px);
         }
 
@@ -97,18 +132,15 @@
             position: absolute;
             left: 10px;
             top: 10px;
-            background: rgba(20, 20, 30, 0.85);
-            color: #e6e6e6;
-
-            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.88);
+            color: var(--ink-text);
+            border-radius: 16px;
             padding: 6px;
-
             font-size: 16px;
-
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(60, 70, 60, 0.08);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
             backdrop-filter: blur(6px);
             height: 50px;
-
             display: flex;
             align-items: center;
             justify-content: center;
@@ -117,21 +149,17 @@
         .maze_v {
             position: absolute;
             left: 10px;
-            background: rgba(20, 20, 30, 0.85);
-            color: #9ecbff;
+            background: rgba(255, 255, 255, 0.88);
+            color: var(--jade);
             width: 80px;
-
-            border-radius: 10px;
+            border-radius: 14px;
             padding: 6px;
-
             font-size: 16px;
-
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(60, 70, 60, 0.08);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
             backdrop-filter: blur(6px);
-
             display: flex;
             align-items: center;
-
         }
 
         #cfgQagent_s {
@@ -158,12 +186,11 @@
         #QTable td {
             padding: 6px 10px;
             text-align: center;
-
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         #QTable th {
-            color: #9ecbff;
+            color: var(--jade);
             font-weight: 600;
         }
 
@@ -174,30 +201,29 @@
 
         /* hover */
         #QTable tr:hover td {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(95, 158, 160, 0.05);
         }
 
-        /* 表头强化 */
         #QTable tr:first-child th {
-            border-bottom: 2px solid rgba(120, 180, 255, 0.5);
+            border-bottom: 2px solid rgba(95, 158, 160, 0.25);
         }
 
         button {
             width: 100%;
-            margin-bottom: 10px;
         }
 
         .step-container {
             margin: 12px 0;
-            padding: 10px;
-            border-radius: 10px;
-            background: rgba(20, 20, 30, 0.4);
+            padding: 12px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(60, 70, 60, 0.08);
         }
 
         .step-title {
             font-weight: bold;
             margin-bottom: 8px;
-            color: #fff;
+            color: var(--ink-text);
         }
 
         .step-flow {
@@ -210,21 +236,20 @@
             position: relative;
             padding: 8px 12px;
             margin: 6px;
-            border-radius: 10px;
-            background: #2b2f3a;
-            color: #aaa;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--ink-text-muted);
             font-size: 13px;
             transition: 0.3s;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(60, 70, 60, 0.08);
         }
 
         .step-node.active {
-            background: #4c8bf5;
-            color: #fff;
+            background: rgba(95, 158, 160, 0.14);
+            color: var(--jade);
             transform: scale(1.05);
         }
 
-        /* ===== 动态连接线 ===== */
         .step-node::after {
             content: "";
             position: absolute;
@@ -233,8 +258,8 @@
             width: 18px;
             height: 2px;
             background: repeating-linear-gradient(90deg,
-                    rgba(255, 255, 255, 0.8) 0px,
-                    rgba(255, 255, 255, 0.8) 4px,
+                    rgba(104, 113, 109, 0.45) 0px,
+                    rgba(104, 113, 109, 0.45) 4px,
                     transparent 4px,
                     transparent 8px);
             animation: flow 0.8s linear infinite;
@@ -244,56 +269,50 @@
             display: none;
         }
 
-        /* ===== 容器 ===== */
         .flow {
             margin: 12px 0;
             padding: 12px;
-            border-radius: 12px;
-            background: rgba(20, 22, 30, 0.6);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(60, 70, 60, 0.08);
         }
 
-        /* ===== 标题 ===== */
         .flow-title {
-            color: #fff;
+            color: var(--ink-text);
             font-weight: bold;
             margin-bottom: 10px;
         }
 
-        /* ===== 主线 ===== */
         .flow-row {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
         }
 
-        /* ===== 节点 ===== */
         .flow-node {
             position: relative;
             padding: 8px 12px;
             margin-right: 28px;
-            border-radius: 10px;
+            border-radius: 12px;
             font-size: 13px;
-            color: #aaa;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--ink-text-muted);
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(60, 70, 60, 0.08);
             transition: 0.3s;
         }
 
-        /* ===== 累积高亮 ===== */
         .flow-node.active {
-            color: #fff;
-            background: linear-gradient(135deg, #4c8bf5, #6ea8ff);
-            box-shadow: 0 0 12px rgba(76, 139, 245, 0.6);
+            color: var(--jade);
+            background: rgba(95, 158, 160, 0.14);
+            box-shadow: 0 8px 18px rgba(95, 158, 160, 0.12);
             transform: scale(1.05);
         }
 
-        /* ===== 已完成状态 ===== */
         .flow-node.done {
-            color: #e6f0ff;
-            background: rgba(76, 139, 245, 0.25);
+            color: var(--ink-text);
+            background: rgba(95, 158, 160, 0.08);
         }
 
-        /* ===== >>>>> 动态流动箭头 ===== */
         .flow-node::after {
             content: ">>>>>";
 
@@ -304,17 +323,14 @@
 
             font-size: 12px;
             letter-spacing: 2px;
-
-            color: rgba(255, 255, 255, 0.2);
+            color: rgba(104, 113, 109, 0.22);
         }
 
-        /* active时箭头动画 */
         .flow-node.active::after {
-            color: #4c8bf5;
+            color: var(--jade);
             animation: flowMove 0.8s linear infinite;
         }
 
-        /* 流动动画（像能量流） */
         @keyframes flowMove {
             0% {
                 opacity: 0.2;
@@ -343,6 +359,53 @@
 
             to {
                 background-position: 16px 0;
+            }
+        }
+
+        .cfgRow {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.76);
+            border: 1px solid rgba(60, 70, 60, 0.08);
+            color: var(--ink-text-soft);
+        }
+
+        .cfgRow label {
+            font-size: 13px;
+            color: var(--ink-text-soft);
+        }
+
+        #graph {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            padding-top: 18px;
+        }
+
+        #graph-container {
+            width: min(1180px, 100%);
+            min-height: 600px;
+        }
+
+        @media (max-width: 1180px) {
+            #show {
+                flex-direction: column;
+            }
+
+            #controls {
+                width: 100%;
+            }
+
+            #maze_explainer_text {
+                width: 100%;
+            }
+
+            #game {
+                grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
             }
         }
     </style>
@@ -460,6 +523,7 @@
     <div id="graph">
         <div id="graph-container"></div>
     </div>
+    <div id="episode-viewer-root-maze"></div>
 
     <script type="module">
         import {

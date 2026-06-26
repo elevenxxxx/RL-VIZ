@@ -1,5 +1,16 @@
 const p5Module = await import("https://cdn.jsdelivr.net/npm/p5@1.9.0/+esm");
 const p5 = p5Module.default;
+const { drawlineGraph } = await import("../chess/graph.js");
+const { createTrainingRecord } = await import("../shared/trainingDiagnostics.js");
+const { createEpisodeTrace, createEpisodeStepRecord } = await import("../shared/episodeTrace.js");
+const { createEpisodeViewer } = await import("../shared/episodeViewer.js");
+
+const MAZE_ACTION_LABELS = ["上", "下", "左", "右"];
+const mazeEpisodeViewer = createEpisodeViewer({
+  containerId: "episode-viewer-root-maze",
+  title: "Single Episode RL Visualization",
+  subtitle: "Replay one Maze Q-learning episode with path, policy scores, and reward decomposition.",
+});
 
 // export const config = {
 //   cols: 25,// 必须奇数
@@ -114,6 +125,18 @@ let isTest = false
 let episodePaths = [];
 let currentPath = [];
 let edgeWeight = {};
+const HEATMAP_START = [224, 231, 255];
+const HEATMAP_END = [91, 33, 182];
+const TRAJECTORY_COLOR = [235, 96, 96];
+
+function lerpRgb(start, end, t) {
+  return [
+    start[0] + (end[0] - start[0]) * t,
+    start[1] + (end[1] - start[1]) * t,
+    start[2] + (end[2] - start[2]) * t,
+  ];
+}
+
 function drawMaze(p) {
   for (let y = 0; y < config.rows; y++) {
     for (let x = 0; x < config.cols; x++) {
@@ -157,11 +180,10 @@ function drawHeatmap(p) {
       if (v === 0) continue;
 
       const intensity = v / maxVisit;
-
-      // ====== 用 alpha 而不是纯蓝覆盖 ======
+      const [r, g, b] = lerpRgb(HEATMAP_START, HEATMAP_END, intensity);
       const alpha = 120 * intensity;
 
-      p.fill(0, 0, 123, alpha); // 透明蓝
+      p.fill(r, g, b, alpha);
       p.rect(
         x * config.cellSize,
         y * config.cellSize,
@@ -201,9 +223,9 @@ function drawTooltip(p) {
   for (let i = 0; i < 4; i++) {
     html += `<div style="font-size:18px;">${i}${actions[i]}: ${q[i].toFixed(3)}</div>`;
 
-    let Qcolor = "#0ff";
+    let Qcolor = "#5F9EA0";
     if (s in Qactive && Qactive[s] == i) {
-      Qcolor = "#80fa4c";
+      Qcolor = "#6E8B74";
     }
 
     if (trace && trace[i]) {
@@ -219,7 +241,7 @@ function drawTooltip(p) {
   tooltip.style.display = "block";
 }
 function drawGoal(p) {
-  p.fill(220, 50, 50);
+  p.fill(199, 91, 91);
   p.rect(
     goal.x * config.cellSize,
     goal.y * config.cellSize,
@@ -236,7 +258,7 @@ function drawAgent(p) {
 
   let dir = agent.dir;
 
-  p.fill(100, 200, 255);
+  p.fill(95, 158, 160);
   p.noStroke();
 
   // ❗初始状态 → 圆
@@ -278,7 +300,7 @@ function drawAgent(p) {
 function drawPolicy(p) {
   p.textAlign(p.CENTER, p.CENTER);
   p.textSize(22);
-  p.fill(30);
+  p.fill(104, 113, 109);
 
   for (let y = 0; y < config.rows; y++) {
     for (let x = 0; x < config.cols; x++) {
@@ -308,7 +330,7 @@ function drawPolicy(p) {
         if (a === 3) symbol = "→";
       }
 
-      p.fill(0);
+      p.fill(104, 113, 109);
       p.text(
         symbol,
         x * config.cellSize + config.cellSize / 2,
@@ -327,17 +349,14 @@ function drawPaths_nomi(p) {
       const key = `${a.x},${a.y}->${b.x},${b.y}`;
       const w = edgeWeight[key] || 1;
 
-      // ====== 1. 方向衰减（越靠前越粗） ======
-      const t = j / path.length; // 0 → 1
+      const t = j / path.length;
       const thickness = (1 - t) * 6 + w * 0.5;
 
-      // ====== 2. 颜色衰减 ======
       const alpha = Math.min(200, 30 + w * 20);
 
-      p.stroke(255, 0, 0, alpha);
+      p.stroke(TRAJECTORY_COLOR[0], TRAJECTORY_COLOR[1], TRAJECTORY_COLOR[2], alpha);
       p.strokeWeight(thickness);
 
-      // ====== 3. 画线 ======
       p.line(
         a.x * config.cellSize + config.cellSize / 2,
         a.y * config.cellSize + config.cellSize / 2,
@@ -346,9 +365,8 @@ function drawPaths_nomi(p) {
       );
     }
   }
-  // reset 
   p.strokeWeight(1);
-  p.stroke(200);
+  p.stroke(232, 235, 232);
 }
 function drawPaths(p) {
   p.noFill();
@@ -356,10 +374,7 @@ function drawPaths(p) {
 
   for (let i = 0; i < episodePaths.length; i++) {
     const path = episodePaths[i];
-
-    // ⭐ 历史路径：整体再弱一点（关键）
     const pathScale = 0.7 + i / episodePaths.length * 0.3;
-    // 0.6 ~ 1.0（越新的越明显）
 
     for (let j = 1; j < path.length; j++) {
       const a = path[j - 1];
@@ -368,36 +383,24 @@ function drawPaths(p) {
       const key = `${a.x},${a.y}->${b.x},${b.y}`;
       const w = edgeWeight[key] || 1;
 
-      // =========================
-      // 1. 方向衰减（核心结构）
-      // =========================
       const t = j / path.length;
-
-      // ⭐ 非线性（神经束风格）
       const curveT = Math.pow(1 - t, 1.6);
 
-      // ⭐ 历史路径更细（重点）
       const baseThickness = Math.max(8, episodePaths.length * 0.6);
       const thickness = (baseThickness * curveT + w * 0.2) * pathScale;
 
-      // =========================
-      // 2. 颜色（更淡）
-      // =========================
       const alphaBase = 160;
       const alpha = Math.min(alphaBase, (100 + w * 5) * pathScale);
 
-      p.stroke(255, 0, 0, alpha);
+      p.stroke(TRAJECTORY_COLOR[0], TRAJECTORY_COLOR[1], TRAJECTORY_COLOR[2], alpha);
       p.strokeWeight(thickness);
 
-      // =========================
-      // 3. 画“束状线”（关键升级）
-      // =========================
       const ax = a.x * config.cellSize + config.cellSize / 2;
       const ay = a.y * config.cellSize + config.cellSize / 2;
       const bx = b.x * config.cellSize + config.cellSize / 2;
       const by = b.y * config.cellSize + config.cellSize / 2;
 
-      const mi = 7; // ⭐ 比 currentPath 少（更轻）
+      const mi = 7;
 
       for (let s = 0; s < mi; s++) {
         const t0 = s / mi;
@@ -410,10 +413,10 @@ function drawPaths(p) {
         const x2 = p.lerp(ax, bx, t1);
         const y2 = p.lerp(ay, by, t1);
 
-        const localThickness = thickness * curveLocal; // ⭐ 更弱
+        const localThickness = thickness * curveLocal;
         const localAlpha = alpha * (0.6 + 0.4 * curveLocal);
 
-        p.stroke(255, 0, 0, localAlpha);
+        p.stroke(TRAJECTORY_COLOR[0], TRAJECTORY_COLOR[1], TRAJECTORY_COLOR[2], localAlpha);
         p.strokeWeight(localThickness);
 
         p.line(x1, y1, x2, y2);
@@ -421,16 +424,15 @@ function drawPaths(p) {
     }
   }
 
-  // reset state
   p.strokeWeight(1);
-  p.stroke(200);
+  p.stroke(232, 235, 232);
   p.pop();
 }
 function drawCurrentPath_nomi(p) {
   if (currentPath.length < 2) return;
 
   p.push();
-  p.stroke(255, 0, 0, 180);
+  p.stroke(TRAJECTORY_COLOR[0], TRAJECTORY_COLOR[1], TRAJECTORY_COLOR[2], 180);
   p.strokeWeight(3);
   p.noFill();
 
@@ -464,28 +466,25 @@ function drawCurrentPath(p) {
     const bx = b.x * config.cellSize + config.cellSize / 2;
     const by = b.y * config.cellSize + config.cellSize / 2;
 
-    const mi = 7; // 束的“密度”
+    const mi = 7;
 
     for (let s = 0; s < mi; s++) {
       let t = s / mi;
 
-      // 非线性粗细（关键）
       const curveT = Math.pow(1 - t, 1.8);
 
       const x = p.lerp(ax, bx, t);
       const y = p.lerp(ay, by, t);
 
-      const base = 10; // 最大粗细
+      const base = 10;
       const w = base * curveT;
 
-      // edge weight 可叠加
       const key = `${a.x},${a.y}->${b.x},${b.y}`;
       const ew = edgeWeight?.[key] || 1;
 
-      p.stroke(255, 0, 0, 120 + ew * 10);
+      p.stroke(TRAJECTORY_COLOR[0], TRAJECTORY_COLOR[1], TRAJECTORY_COLOR[2], 120 + ew * 10);
       p.strokeWeight(w);
 
-      // 画短线段（形成“束”）
       const nx = p.lerp(ax, bx, (s + 1) / mi);
       const ny = p.lerp(ay, by, (s + 1) / mi);
 
@@ -636,6 +635,60 @@ function getQ(s) {
   if (!Q[s]) Q[s] = [0, 0, 0, 0];
   return Q[s];
 }
+
+function getVisitedStateCount() {
+  return Object.keys(visitCount).length;
+}
+
+function getGlobalMaxQ() {
+  let maxQ = Number.NEGATIVE_INFINITY;
+
+  for (const values of Object.values(Q)) {
+    for (const value of values) {
+      if (value > maxQ) {
+        maxQ = value;
+      }
+    }
+  }
+
+  return Number.isFinite(maxQ) ? maxQ : 0;
+}
+
+function getMazePolicySnapshot(s, selectedAction) {
+  const q = getQ(s);
+  const maxQ = Math.max(...q);
+  const bestActions = [];
+  for (let i = 0; i < q.length; i++) {
+    if (q[i] === maxQ) bestActions.push(i);
+  }
+
+  const exploreProb = config.epsilon / q.length;
+  const exploitProb = bestActions.length > 0 ? (1 - config.epsilon) / bestActions.length : 0;
+  const entries = q.map((value, actionId) => {
+    const probability = exploreProb + (bestActions.includes(actionId) ? exploitProb : 0);
+    return {
+      actionId,
+      label: `${MAZE_ACTION_LABELS[actionId]} · Q=${value.toFixed(3)}`,
+      probability,
+      qValue: value,
+    };
+  }).sort((lhs, rhs) => rhs.probability - lhs.probability || rhs.qValue - lhs.qValue);
+
+  const entropy = entries.reduce((sum, entry) => {
+    if (entry.probability <= 0) return sum;
+    return sum - entry.probability * Math.log(entry.probability + 1e-8);
+  }, 0);
+
+  return {
+    entropy,
+    topActions: entries.slice(0, 5),
+    selectedAction: {
+      actionId: selectedAction,
+      label: MAZE_ACTION_LABELS[selectedAction] ?? `a=${selectedAction}`,
+      probability: entries.find((entry) => entry.actionId === selectedAction)?.probability ?? null,
+    },
+  };
+}
 //  ε-greedy
 function chooseAction(s) {
   const q = getQ(s);
@@ -679,19 +732,25 @@ function updateQ(s, a, r, s2) {
   document.getElementById(`q_sa`).textContent = `Q(${qsrc.x}-${qsrc.y},a)`;
   document.getElementById(`q_s2a2`).textContent = `Q(${qs2rc.x}-${qs2rc.y},a')`;
   for (let i = 0; i < 4; i++) {
-    let Qcolor1 = "#e6e6e6";
+    let Qcolor1 = "#68716D";
     if (s in Qactive && Qactive[s] == i) {
-      Qcolor1 = "#80fa4c";
+      Qcolor1 = "#6E8B74";
     }
-    let Qcolor2 = "#e6e6e6";
+    let Qcolor2 = "#68716D";
     if (s2 in Qactive && Qactive[s2] == i) {
-      Qcolor2 = "#80fa4c";
+      Qcolor2 = "#6E8B74";
     }
     document.getElementById(`q_sa_${i}`).textContent = q[i].toFixed(3);
     document.getElementById(`q_sa_${i}`).style.color = Qcolor1;
     document.getElementById(`q_s2a_${i}`).textContent = q2[i].toFixed(3);
     document.getElementById(`q_s2a_${i}`).style.color = Qcolor2;
   }
+
+  return {
+    qDelta: Math.abs(newQ - oldQ),
+    newQ,
+    maxNext,
+  };
 }
 
 const sketch = (p) => {
@@ -706,7 +765,7 @@ const sketch = (p) => {
   };
 
   p.draw = () => {
-    p.background(245);//灰度值
+    p.background(243, 244, 242);
 
     if (config.draw_maze) drawMaze(p);
     if (config.draw_heatmap) drawHeatmap(p);
@@ -791,6 +850,8 @@ function step(action) {
   ];
 
   const [dx, dy] = dirs[action];
+  const stateBefore = rc2stateId(agent.x, agent.y);
+  const positionBefore = { x: agent.x, y: agent.y };
   switch (action) {
     case 0:
       agent.dir = "up";
@@ -812,6 +873,12 @@ function step(action) {
 
   let reward = -0.01;
   let done = false;
+  const rewardBreakdown = {
+    stepReward: -0.01,
+    wallPenalty: 0,
+    backtrackPenalty: 0,
+    goalReward: 0,
+  };
 
   let nextX = agent.x;
   let nextY = agent.y;
@@ -826,6 +893,8 @@ function step(action) {
 
   if (hitWall) {
     reward = -0.1;
+    rewardBreakdown.stepReward = 0;
+    rewardBreakdown.wallPenalty = -0.1;
   } else {
     nextX = nx;
     nextY = ny;
@@ -836,6 +905,7 @@ function step(action) {
 
   if (isBacktrack && !(nextX === agent.x && nextY === agent.y)) {
     reward -= 0.05;
+    rewardBreakdown.backtrackPenalty = -0.05;
   }
 
   agent.prevX = agent.x;
@@ -850,10 +920,14 @@ function step(action) {
   // ====== 到达终点 ======
   if (agent.x === goal.x && agent.y === goal.y) {
     reward = 20;
+    rewardBreakdown.stepReward = 0;
+    rewardBreakdown.wallPenalty = 0;
+    rewardBreakdown.backtrackPenalty = 0;
+    rewardBreakdown.goalReward = 20;
     done = true;
   }
 
-  const s = rc2stateId(agent.x, agent.y);
+  const s = stateBefore;
   const s2 = rc2stateId(agent.tx, agent.ty);
 
 
@@ -864,7 +938,17 @@ function step(action) {
   if (!isTest) {
     visitCount[s2] = (visitCount[s2] || 0) + 1;
   }
-  return { s, s2, reward, done };
+  return {
+    s,
+    s2,
+    reward,
+    done,
+    rewardBreakdown,
+    hitWall,
+    isBacktrack,
+    positionBefore,
+    positionAfter: { x: agent.x, y: agent.y },
+  };
 }
 
 async function trainEpisode(episodeId = 0) {
@@ -874,18 +958,42 @@ async function trainEpisode(episodeId = 0) {
   let done = false;
   let stepCount = 0;
   let totalReward = 0;
+  let qDeltaSum = 0;
+  const episodeSteps = [];
 
   while (!done && stepCount < config.maxSteps && !config.stop) {
 
     const a = chooseAction(s);
-    const { s2, reward, done: d } = step(a);
+    const policySnapshot = getMazePolicySnapshot(s, a);
+    const { s2, reward, done: d, rewardBreakdown, hitWall, isBacktrack, positionBefore, positionAfter } = step(a);
     totalReward += reward;
-    updateQ(s, a, reward, s2);
+    const updateInfo = updateQ(s, a, reward, s2);
+    qDeltaSum += updateInfo.qDelta;
 
     Agentinfo.Qagent_s = s;
     Agentinfo.Qagent_a = a;
     Agentinfo.Qagent_r = reward;
     Agentinfo.Qagent_qs = s2;
+
+    episodeSteps.push(createEpisodeStepRecord({
+      index: stepCount,
+      stateBefore: { stateId: s, position: positionBefore },
+      stateAfter: { stateId: s2, position: positionAfter },
+      actionId: a,
+      actionLabel: MAZE_ACTION_LABELS[a] ?? `a=${a}`,
+      selectedAction: policySnapshot.selectedAction,
+      reward,
+      rewardBreakdown,
+      policyTopActions: policySnapshot.topActions,
+      entropy: policySnapshot.entropy,
+      done: d,
+      info: {
+        detail: d ? "goal reached" : hitWall ? "hit wall" : isBacktrack ? "backtrack" : "move",
+        positionBefore,
+        positionAfter,
+        pathSoFar: currentPath.map((point) => ({ x: point.x, y: point.y })),
+      },
+    }));
 
     s = s2;
     done = d;
@@ -913,15 +1021,43 @@ async function trainEpisode(episodeId = 0) {
     currentPath = [];
   }
 
-  let record = {
+  let record = createTrainingRecord({
     episode: episodeId,
     steps: stepCount,
     reward: totalReward,
+    success: done,
     win: done,
-  };
+    qDelta: stepCount > 0 ? qDeltaSum / stepCount : 0,
+    epsilon: config.epsilon,
+    maxQ: getGlobalMaxQ(),
+    visitedStates: getVisitedStateCount(),
+  });
   console.log(record);
-  if (!config.stop)
+  if (!config.stop) {
     records.push(record);
+    mazeEpisodeViewer.pushEpisode(createEpisodeTrace({
+      envType: "maze",
+      episode: episodeId,
+      totalReward,
+      totalSteps: episodeSteps.length,
+      summary: {
+        outcome: done ? "success" : "truncated",
+        successLabel: done ? "Reached Goal" : "Stopped / Max Steps",
+      },
+      metadata: {
+        mazeGrid: grid.map((row) => row.map((cell) => cell.wall ? 1 : 0)),
+        start: { ...start },
+        goal: { ...goal },
+      },
+      steps: episodeSteps,
+    }));
+    drawlineGraph(records, {
+      title: "Maze Q-learning Diagnostics",
+      subtitle: "Track reward, path length, exploration, and whether Q-values are still changing.",
+      mode: "qlearning",
+      movingAverageWindow: 20,
+    });
+  }
 }
 export async function stepTrainEpisode() {
   config.currentEpisode++;
@@ -938,6 +1074,12 @@ export async function train() {
       await new Promise(r => setTimeout(r, config.renderSpeed));
     }
   }
+  drawlineGraph(records, {
+    title: "Maze Q-learning Diagnostics",
+    subtitle: "Track reward, path length, exploration, and whether Q-values are still changing.",
+    mode: "qlearning",
+    movingAverageWindow: 20,
+  });
   alert("训练完成");
 }
 export async function test() {
@@ -1002,6 +1144,7 @@ export function resetAgent() {
   episodePaths = [];
   currentPath = [];
   edgeWeight = {};
+  mazeEpisodeViewer.clear();
 
   const new_Agentinfo = structuredClone(init_Agentinfo);
   Object.keys(new_Agentinfo).forEach(k => {
@@ -1101,4 +1244,3 @@ export function applyConfig() {
 }
 
 let P = new p5(sketch);
-

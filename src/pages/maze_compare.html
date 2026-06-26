@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="../styles/ink-theme.css" />
+  <title>迷宫强化学习对比</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    body {
+      min-height: 100vh;
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+      overflow-y: auto;
+    }
+
+    .compare-shell,
+    .compare-panel {
+      border-radius: 28px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(60, 70, 60, 0.08);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+      backdrop-filter: blur(12px);
+    }
+
+    .compare-shell {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .compare-title {
+      margin: 0;
+      font-size: 28px;
+      color: var(--ink-text);
+    }
+
+    .compare-subtitle {
+      margin: 6px 0 0;
+      color: var(--ink-text-muted);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .compare-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .compare-field {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(60, 70, 60, 0.06);
+    }
+
+    .compare-field label {
+      font-size: 12px;
+      color: var(--ink-text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    .compare-field input,
+    .compare-field select {
+      border-radius: 12px;
+      border: 1px solid rgba(60, 70, 60, 0.12);
+      padding: 10px 12px;
+      color: var(--ink-text);
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .compare-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .compare-actions button {
+      width: auto;
+      min-width: 148px;
+    }
+
+    .compare-status {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(95, 158, 160, 0.08);
+      border: 1px solid rgba(95, 158, 160, 0.08);
+      color: var(--ink-text);
+      line-height: 1.7;
+      white-space: pre-line;
+    }
+
+    .compare-viewers {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .compare-panel {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .compare-panel h2 {
+      margin: 0;
+      font-size: 20px;
+      color: var(--ink-text);
+    }
+
+    .compare-panel p {
+      margin: 0;
+      color: var(--ink-text-muted);
+      font-size: 13px;
+    }
+
+    .compare-viewer-toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .compare-viewer-toolbar select {
+      min-width: 220px;
+      border-radius: 12px;
+      border: 1px solid rgba(60, 70, 60, 0.12);
+      padding: 9px 12px;
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .compare-canvas {
+      width: 100%;
+      height: 420px;
+      border-radius: 22px;
+      background: rgba(243, 244, 242, 0.9);
+      border: 1px solid rgba(60, 70, 60, 0.08);
+    }
+
+    .compare-meta {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(60, 70, 60, 0.06);
+    }
+
+    .compare-meta__row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--ink-text);
+      font-size: 13px;
+    }
+
+    .compare-meta__row span {
+      color: var(--ink-text-muted);
+    }
+
+    .compare-meta__empty {
+      margin: 0;
+      color: var(--ink-text-muted);
+    }
+
+    .compare-charts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .compare-chart {
+      min-height: 280px;
+    }
+
+    @media (max-width: 1080px) {
+      .compare-viewers,
+      .compare-charts {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="compare-shell">
+    <div>
+      <h1 class="compare-title">迷宫强化学习对比</h1>
+      <p class="compare-subtitle">在同一张迷宫地图上运行 Q-learning 和 PPO，对比两种算法的实时路径行为，并观察 reward、steps 和 success rate 的训练差异。</p>
+    </div>
+
+    <div class="compare-controls">
+      <div class="compare-field">
+        <label for="episodesInput">训练轮数</label>
+        <input id="episodesInput" type="number" min="5" max="500" value="80" />
+      </div>
+      <div class="compare-field">
+        <label for="rowsInput">迷宫行数（奇数）</label>
+        <input id="rowsInput" type="number" min="5" max="41" value="21" />
+      </div>
+      <div class="compare-field">
+        <label for="colsInput">迷宫列数（奇数）</label>
+        <input id="colsInput" type="number" min="5" max="41" value="21" />
+      </div>
+      <div class="compare-field">
+        <label for="maxStepsInput">每轮最大步数</label>
+        <input id="maxStepsInput" type="number" min="30" max="1000" value="300" />
+      </div>
+    </div>
+
+    <div class="compare-actions">
+      <button id="generateBtn">生成共享迷宫</button>
+      <button id="trainQBtn">运行迷宫 Q-learning</button>
+      <button id="trainPpoBtn">运行迷宫 PPO</button>
+      <button id="compareBtn">运行完整对比</button>
+    </div>
+
+    <div id="statusBox" class="compare-status">准备就绪。</div>
+  </div>
+
+  <div class="compare-viewers">
+    <div class="compare-panel">
+      <div>
+        <h2>迷宫 Q-learning 基线</h2>
+        <p>在共享迷宫地图上进行值表更新训练。</p>
+      </div>
+      <div class="compare-viewer-toolbar">
+        <select id="qEpisodeSelect"></select>
+      </div>
+      <canvas id="qCanvas" class="compare-canvas" width="620" height="420"></canvas>
+      <div id="qMeta" class="compare-meta"></div>
+    </div>
+
+    <div class="compare-panel">
+      <div>
+        <h2>迷宫 PPO</h2>
+        <p>在完全相同的共享迷宫地图上进行策略梯度训练。</p>
+      </div>
+      <div class="compare-viewer-toolbar">
+        <select id="ppoEpisodeSelect"></select>
+      </div>
+      <canvas id="ppoCanvas" class="compare-canvas" width="620" height="420"></canvas>
+      <div id="ppoMeta" class="compare-meta"></div>
+    </div>
+  </div>
+
+  <div class="compare-charts">
+    <div class="compare-panel">
+      <h2>步数对比</h2>
+      <div id="stepsChart" class="compare-chart"></div>
+    </div>
+    <div class="compare-panel">
+      <h2>成功率对比</h2>
+      <div id="successChart" class="compare-chart"></div>
+    </div>
+    <div class="compare-panel">
+      <h2>奖励对比</h2>
+      <div id="rewardChart" class="compare-chart"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createSharedMazeSnapshot, runMazeComparison, runMazeTraining } from "/src/runners/train_maze_compare.js";
+    import { populateEpisodeSelect, renderComparisonCharts, renderEpisodeMeta } from "/src/visualizations/maze_compare_view.js";
+    import { MazeLiveBoard } from "/src/visualizations/maze_live_board.js";
+
+    const stepsChart = echarts.init(document.getElementById("stepsChart"));
+    const successChart = echarts.init(document.getElementById("successChart"));
+    const rewardChart = echarts.init(document.getElementById("rewardChart"));
+    const qBoard = new MazeLiveBoard(document.getElementById("qCanvas"));
+    const ppoBoard = new MazeLiveBoard(document.getElementById("ppoCanvas"));
+
+    let mapSnapshot = createSharedMazeSnapshot({ cols: 21, rows: 21, maxSteps: 300 });
+    let histories = {
+      q_learning: [],
+      ppo: [],
+    };
+
+    function readConfig() {
+      return {
+        episodes: Number(document.getElementById("episodesInput").value) || 80,
+        cols: Number(document.getElementById("colsInput").value) || 21,
+        rows: Number(document.getElementById("rowsInput").value) || 21,
+        maxSteps: Number(document.getElementById("maxStepsInput").value) || 300,
+      };
+    }
+
+    function setStatus(text) {
+      document.getElementById("statusBox").textContent = text;
+    }
+
+    function ensureSharedMap(config) {
+      const sameShape =
+        mapSnapshot &&
+        mapSnapshot.envConfig &&
+        mapSnapshot.envConfig.cols === config.cols &&
+        mapSnapshot.envConfig.rows === config.rows;
+
+      if (!sameShape) {
+        mapSnapshot = createSharedMazeSnapshot(config);
+      } else {
+        mapSnapshot = {
+          ...mapSnapshot,
+          envConfig: {
+            ...mapSnapshot.envConfig,
+            maxSteps: config.maxSteps,
+            loopRate: mapSnapshot.envConfig.loopRate,
+          },
+        };
+      }
+    }
+
+    function applyBoardMap() {
+      const boardOptions = {
+        start: { x: 1, y: 1 },
+        goal: { x: mapSnapshot.envConfig.cols - 2, y: mapSnapshot.envConfig.rows - 2 },
+      };
+      qBoard.setGrid(mapSnapshot.grid, boardOptions);
+      ppoBoard.setGrid(mapSnapshot.grid, boardOptions);
+    }
+
+    function hydrateBoard(board, episodes, selectedIndex) {
+      board.setEpisodePaths(episodes.map((episode) => episode.path));
+      const selectedEpisode = episodes[selectedIndex] ?? episodes.at(-1) ?? null;
+      if (selectedEpisode) {
+        board.showEpisode(selectedEpisode.path);
+      } else {
+        board.clearHistory();
+        board.setGrid(mapSnapshot.grid, {
+          start: { x: 1, y: 1 },
+          goal: { x: mapSnapshot.envConfig.cols - 2, y: mapSnapshot.envConfig.rows - 2 },
+        });
+      }
+    }
+
+    function renderAll() {
+      const qSelect = document.getElementById("qEpisodeSelect");
+      const ppoSelect = document.getElementById("ppoEpisodeSelect");
+      populateEpisodeSelect(qSelect, histories.q_learning, Number(qSelect.value || histories.q_learning.length - 1));
+      populateEpisodeSelect(ppoSelect, histories.ppo, Number(ppoSelect.value || histories.ppo.length - 1));
+
+      const qEpisode = histories.q_learning[Number(qSelect.value)] ?? histories.q_learning.at(-1) ?? null;
+      const ppoEpisode = histories.ppo[Number(ppoSelect.value)] ?? histories.ppo.at(-1) ?? null;
+
+      hydrateBoard(qBoard, histories.q_learning, Number(qSelect.value));
+      hydrateBoard(ppoBoard, histories.ppo, Number(ppoSelect.value));
+      renderEpisodeMeta(document.getElementById("qMeta"), "Q-learning", qEpisode);
+      renderEpisodeMeta(document.getElementById("ppoMeta"), "PPO", ppoEpisode);
+      renderComparisonCharts({ stepsChart, successChart, rewardChart }, histories);
+    }
+
+    async function generateSharedMaze() {
+      mapSnapshot = createSharedMazeSnapshot(readConfig());
+      histories = { q_learning: [], ppo: [] };
+      applyBoardMap();
+      renderAll();
+      setStatus("已生成新的共享迷宫地图。两种算法接下来都会在同一张地图上训练。");
+    }
+
+    async function runSingle(mode) {
+      const config = readConfig();
+      ensureSharedMap(config);
+      histories[mode] = [];
+      applyBoardMap();
+      const board = mode === "q_learning" ? qBoard : ppoBoard;
+      board.clearHistory();
+      board.setGrid(mapSnapshot.grid, {
+        start: { x: 1, y: 1 },
+        goal: { x: mapSnapshot.envConfig.cols - 2, y: mapSnapshot.envConfig.rows - 2 },
+      });
+      setStatus(`正在共享迷宫上运行 ${mode === "q_learning" ? "Q-learning" : "PPO"} ...`);
+
+      const result = await runMazeTraining({
+        mode,
+        episodes: config.episodes,
+        envConfig: config,
+        mapSnapshot,
+        onStep: async (_, stepContext) => {
+          if (stepContext.path.length <= 1) {
+            board.beginEpisode(stepContext.path);
+          } else {
+            board.updateCurrentPath(stepContext.path);
+          }
+          if (stepContext.done) {
+            board.commitEpisode(stepContext.path);
+          }
+          setStatus(`正在运行 ${mode === "q_learning" ? "Q-learning" : "PPO"}：第 ${stepContext.episodeIndex + 1} / ${stepContext.episodes} 轮 · 第 ${stepContext.path.length - 1} 步`);
+        },
+        onEpisode: async (_, context) => {
+          histories[mode] = context.history;
+          renderAll();
+          setStatus(`正在运行 ${mode === "q_learning" ? "Q-learning" : "PPO"}：第 ${context.episodeIndex + 1} / ${context.episodes} 轮`);
+        },
+      });
+
+      histories[mode] = result.history;
+      renderAll();
+      setStatus(`${mode === "q_learning" ? "Q-learning" : "PPO"} 训练完成。总轮数：${result.history.length}`);
+    }
+
+    async function runCompare() {
+      const config = readConfig();
+      ensureSharedMap(config);
+      histories = { q_learning: [], ppo: [] };
+      applyBoardMap();
+      qBoard.clearHistory();
+      ppoBoard.clearHistory();
+      renderAll();
+      setStatus("正在同一张共享迷宫地图上运行完整对比...");
+
+      await runMazeComparison({
+        episodes: config.episodes,
+        envConfig: config,
+        onStep: async (_, stepContext) => {
+          const board = stepContext.algorithm === "q_learning" ? qBoard : ppoBoard;
+          if (stepContext.path.length <= 1) {
+            board.beginEpisode(stepContext.path);
+          } else {
+            board.updateCurrentPath(stepContext.path);
+          }
+          if (stepContext.done) {
+            board.commitEpisode(stepContext.path);
+          }
+          setStatus(`正在运行 ${stepContext.algorithm === "q_learning" ? "Q-learning" : "PPO"}：第 ${stepContext.episodeIndex + 1} / ${config.episodes} 轮 · 第 ${stepContext.path.length - 1} 步`);
+        },
+        onUpdate: async (payload) => {
+          histories = payload.histories;
+          mapSnapshot = payload.mapSnapshot;
+          renderAll();
+          const latestEpisode = payload.latest?.episode?.episodeIndex ?? 0;
+          setStatus(`正在运行 ${payload.latest?.algorithm === "q_learning" ? "Q-learning" : "PPO"}：第 ${latestEpisode + 1} / ${config.episodes} 轮`);
+        },
+      });
+
+      setStatus("完整对比已完成。左侧为 Q-learning 路径，右侧为 PPO 路径。");
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", generateSharedMaze);
+    document.getElementById("trainQBtn").addEventListener("click", () => runSingle("q_learning"));
+    document.getElementById("trainPpoBtn").addEventListener("click", () => runSingle("ppo"));
+    document.getElementById("compareBtn").addEventListener("click", runCompare);
+    document.getElementById("qEpisodeSelect").addEventListener("change", renderAll);
+    document.getElementById("ppoEpisodeSelect").addEventListener("change", renderAll);
+
+    window.addEventListener("resize", () => {
+      stepsChart.resize();
+      successChart.resize();
+      rewardChart.resize();
+      qBoard.render();
+      ppoBoard.render();
+    });
+
+    applyBoardMap();
+    renderAll();
+  </script>
+</body>
+</html>

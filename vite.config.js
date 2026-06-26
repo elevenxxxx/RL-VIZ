@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
                     main: resolve(__dirname, 'index.html'),
                     chess: resolve(__dirname, 'src/pages/chess.html'),
                     maze: resolve(__dirname, 'src/pages/maze.html'),
+                    mazeCompare: resolve(__dirname, 'src/pages/maze_compare.html'),
                 }
             }
         }
