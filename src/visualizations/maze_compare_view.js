@@ -1,5 +1,20 @@
 import { movingAverage, successRateSeries } from "../metrics/episode_metrics.js";
 
+const COMPARE_THEME = {
+  text: "#f5e7a6",
+  textMuted: "#d8cd93",
+  reward: "#63d8d0",
+  rewardSoft: "#93ebe4",
+  success: "#7cd8bc",
+  danger: "#ff9e7f",
+  actor: "#f0d572",
+  critic: "#93d3f2",
+  tooltip: "rgba(6, 41, 46, 0.96)",
+  border: "rgba(108, 214, 203, 0.16)",
+  axis: "rgba(108, 214, 203, 0.24)",
+  grid: "rgba(108, 214, 203, 0.12)",
+};
+
 function drawGrid(ctx, canvas, grid) {
   const rows = grid.length;
   const cols = grid[0].length;
@@ -104,14 +119,14 @@ export function renderEpisodeMeta(container, label, episode) {
 
 function buildChartBase(title) {
   return {
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
     animationDuration: 280,
     title: {
       text: title,
       left: 16,
       top: 12,
       textStyle: {
-        color: "#2C3432",
+        color: COMPARE_THEME.text,
         fontSize: 16,
         fontWeight: 700,
       },
@@ -120,17 +135,17 @@ function buildChartBase(title) {
       top: 14,
       right: 18,
       textStyle: {
-        color: "#68716D",
+        color: COMPARE_THEME.textMuted,
         fontSize: 12,
       },
     },
     tooltip: {
       trigger: "axis",
-      backgroundColor: "rgba(255,255,255,0.96)",
-      borderColor: "rgba(60,70,60,0.08)",
+      backgroundColor: COMPARE_THEME.tooltip,
+      borderColor: COMPARE_THEME.border,
       borderWidth: 1,
       textStyle: {
-        color: "#2C3432",
+        color: COMPARE_THEME.text,
         fontSize: 13,
       },
     },
@@ -144,10 +159,10 @@ function buildChartBase(title) {
     xAxis: {
       type: "category",
       axisLine: {
-        lineStyle: { color: "#D6DBD8" },
+        lineStyle: { color: COMPARE_THEME.axis },
       },
       axisLabel: {
-        color: "#68716D",
+        color: COMPARE_THEME.textMuted,
         fontSize: 12,
       },
     },
@@ -155,14 +170,14 @@ function buildChartBase(title) {
       type: "value",
       axisLine: {
         show: true,
-        lineStyle: { color: "#D6DBD8" },
+        lineStyle: { color: COMPARE_THEME.axis },
       },
       axisLabel: {
-        color: "#68716D",
+        color: COMPARE_THEME.textMuted,
         fontSize: 12,
       },
       splitLine: {
-        lineStyle: { color: "#E8EBE8" },
+        lineStyle: { color: COMPARE_THEME.grid },
       },
     },
   };
@@ -190,7 +205,7 @@ export function renderComparisonCharts(charts, histories = {}) {
         type: "line",
         smooth: true,
         symbol: "none",
-        lineStyle: { width: 2, color: "#5F9EA0" },
+        lineStyle: { width: 2, color: COMPARE_THEME.reward },
         data: historySeries(qHistory, "steps"),
       },
       {
@@ -198,7 +213,7 @@ export function renderComparisonCharts(charts, histories = {}) {
         type: "line",
         smooth: true,
         symbol: "none",
-        lineStyle: { width: 2, color: "#C75B5B" },
+        lineStyle: { width: 2, color: COMPARE_THEME.critic },
         data: historySeries(ppoHistory, "steps"),
       },
       {
@@ -206,7 +221,7 @@ export function renderComparisonCharts(charts, histories = {}) {
         type: "line",
         smooth: true,
         symbol: "none",
-        lineStyle: { width: 2, type: "dashed", color: "#8AB9BA" },
+        lineStyle: { width: 2, type: "dashed", color: COMPARE_THEME.rewardSoft },
         data: movingAverage(historySeries(qHistory, "steps"), 10),
       },
       {
@@ -214,7 +229,7 @@ export function renderComparisonCharts(charts, histories = {}) {
         type: "line",
         smooth: true,
         symbol: "none",
-        lineStyle: { width: 2, type: "dashed", color: "#E3A6A6" },
+        lineStyle: { width: 2, type: "dashed", color: "#c3e7fb" },
         data: movingAverage(historySeries(ppoHistory, "steps"), 10),
       },
     ],
@@ -236,7 +251,7 @@ export function renderComparisonCharts(charts, histories = {}) {
         type: "line",
         smooth: true,
         symbol: "none",
-        lineStyle: { width: 2, color: "#6E8B74" },
+        lineStyle: { width: 2, color: COMPARE_THEME.success },
         data: successRateSeries(qHistory, 10),
       },
       {
@@ -244,7 +259,7 @@ export function renderComparisonCharts(charts, histories = {}) {
         type: "line",
         smooth: true,
         symbol: "none",
-        lineStyle: { width: 2, color: "#D2A24C" },
+        lineStyle: { width: 2, color: COMPARE_THEME.actor },
         data: successRateSeries(ppoHistory, 10),
       },
     ],
@@ -262,7 +277,7 @@ export function renderComparisonCharts(charts, histories = {}) {
         type: "line",
         smooth: true,
         symbol: "none",
-        lineStyle: { width: 2, color: "#5F9EA0" },
+        lineStyle: { width: 2, color: COMPARE_THEME.reward },
         data: historySeries(qHistory, "reward"),
       },
       {
@@ -270,7 +285,7 @@ export function renderComparisonCharts(charts, histories = {}) {
         type: "line",
         smooth: true,
         symbol: "none",
-        lineStyle: { width: 2, color: "#C75B5B" },
+        lineStyle: { width: 2, color: COMPARE_THEME.danger },
         data: historySeries(ppoHistory, "reward"),
       },
     ],

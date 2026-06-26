@@ -8,10 +8,12 @@ const { createEpisodeViewer } = await import("../shared/episodeViewer.js");
 const env = new Game();
 let agent = new Agent(env);
 let trainingActive = false;
+const CHESS_EPISODE_TRACE_INTERVAL = 5;
 const episodeViewer = createEpisodeViewer({
     containerId: "episode-viewer-root",
     title: "Single Episode RL Visualization",
     subtitle: "Replay one Chinese Chess PPO episode with rollout, policy top actions, and reward breakdown.",
+    maxEpisodes: 50,
 });
 
 function formatNumber(value, digits = 3) {
@@ -108,6 +110,7 @@ export async function train() {
         const history = await agent.train({
             episodes: totalEpisodes,
             chartUpdateInterval: 5,
+            episodeTraceInterval: CHESS_EPISODE_TRACE_INTERVAL,
             onProgress: (record, progressInfo) => {
                 const elapsedMs = performance.now() - startedAt;
                 const completedEpisodes = progressInfo.episode + 1;

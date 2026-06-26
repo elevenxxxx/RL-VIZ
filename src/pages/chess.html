@@ -23,13 +23,17 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 18px 0 0;
+            padding: 0;
             position: relative;
         }
 
         #graph-container {
             width: min(1180px, 100%);
-            min-height: 600px;
+            min-height: 0;
+        }
+
+        #graph-container:empty {
+            display: none;
         }
 
         #show {
@@ -40,9 +44,9 @@
             position: relative;
             padding: 24px;
             border-radius: 28px;
-            background: rgba(255, 255, 255, 0.75);
-            border: 1px solid rgba(60, 70, 60, 0.08);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+            background: var(--ink-panel);
+            border: 1px solid var(--ink-border);
+            box-shadow: var(--shadow-soft);
             backdrop-filter: blur(12px);
         }
 
@@ -54,8 +58,8 @@
             flex: 1;
             border-radius: 24px;
             padding: 24px;
-            background: rgba(255, 255, 255, 0.52);
-            border: 1px solid rgba(60, 70, 60, 0.06);
+            background: rgba(10, 58, 65, 0.56);
+            border: 1px solid rgba(108, 214, 203, 0.14);
         }
 
         #controls {
@@ -65,9 +69,9 @@
             flex-direction: column;
             gap: 14px;
             border-radius: 24px;
-            background: rgba(255, 255, 255, 0.72);
-            border: 1px solid rgba(60, 70, 60, 0.08);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+            background: var(--ink-panel-strong);
+            border: 1px solid var(--ink-border);
+            box-shadow: var(--shadow-soft);
             backdrop-filter: blur(12px);
         }
 
@@ -75,21 +79,22 @@
             margin-top: 2px;
             padding: 16px;
             border-radius: 20px;
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px solid rgba(60, 70, 60, 0.08);
-            color: var(--ink-text);
+            background: rgba(10, 58, 65, 0.72);
+            border: 1px solid rgba(108, 214, 203, 0.14);
+            color: var(--ink-card-text);
         }
 
         #training-status h3 {
             margin: 0 0 8px;
             font-size: 20px;
             font-weight: 650;
+            color: var(--ink-heading-secondary);
         }
 
         .training-status__headline {
             margin: 0 0 14px;
             font-size: 13px;
-            color: var(--ink-text-muted);
+            color: var(--ink-copy-soft);
             line-height: 1.6;
         }
 
@@ -110,16 +115,16 @@
             width: 100%;
             height: 12px;
             border-radius: 999px;
-            background: rgba(95, 158, 160, 0.08);
+            background: rgba(93, 207, 201, 0.14);
             overflow: hidden;
             margin-bottom: 14px;
-            border: 1px solid rgba(95, 158, 160, 0.08);
+            border: 1px solid rgba(108, 214, 203, 0.16);
         }
 
         .training-status__progress-bar {
             width: 0%;
             height: 100%;
-            background: linear-gradient(90deg, var(--jade) 0%, #7ab1b2 100%);
+            background: linear-gradient(90deg, var(--jade) 0%, var(--critic) 100%);
             transition: width 0.18s ease-out;
         }
 
@@ -128,23 +133,23 @@
             gap: 6px;
             padding: 12px;
             border-radius: 16px;
-            background: rgba(255, 255, 255, 0.78);
-            border: 1px solid rgba(60, 70, 60, 0.06);
+            background: var(--ink-card-light);
+            border: 1px solid rgba(108, 214, 203, 0.18);
         }
 
         .training-status__label {
             font-size: 12px;
             letter-spacing: 0.04em;
-            color: var(--ink-text-muted);
+            color: var(--ink-card-text-soft);
         }
 
         .training-status__value {
             font-size: 18px;
             font-weight: 700;
-            color: var(--ink-text);
+            color: var(--ink-card-text);
         }
 
-        canvas {
+        #board {
             max-width: 100%;
             background: #dec28c;
             border: 1px solid rgba(60, 70, 60, 0.12);
@@ -154,6 +159,19 @@
 
         button {
             width: 100%;
+        }
+
+        #controls > button {
+            color: var(--ink-text);
+            background: rgba(10, 58, 65, 0.9);
+            border-color: rgba(108, 214, 203, 0.24);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+        }
+
+        #controls > button:hover:not(:disabled) {
+            color: #072f35;
+            background: var(--jade);
+            border-color: var(--ink-border-strong);
         }
 
         @media (max-width: 1100px) {
@@ -182,8 +200,6 @@
         <button id="resetBtn">重置</button>
         <button id="trainBtn">训练模型</button>
         <button id="testBtn">评估模型</button>
-        <button id="loadBtn">加载模型</button>
-        <button id="saveBtn">保存模型</button>
         <button id="drawGraphBtn">测试绘图</button>
 
         <div id="training-status">
@@ -215,12 +231,10 @@
 <div id="episode-viewer-root"></div>
 
 <script type="module">
-    import { reset, train, test, load, save, drawGraph } from "/src/envs/chess/ui.js";
+    import { reset, train, test, drawGraph } from "/src/envs/chess/ui.js";
     document.getElementById('resetBtn').addEventListener('click', reset);
     document.getElementById('trainBtn').addEventListener('click', train);
     document.getElementById('testBtn').addEventListener('click', test);
-    document.getElementById('loadBtn').addEventListener('click', load);
-    document.getElementById('saveBtn').addEventListener('click', save);
     document.getElementById('drawGraphBtn').addEventListener('click', drawGraph);
 </script>
 

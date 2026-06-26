@@ -1,27 +1,35 @@
 :root {
-    --ink-bg: #f3f4f2;
-    --ink-bg-soft: #eef2ef;
-    --ink-panel: rgba(255, 255, 255, 0.75);
-    --ink-panel-strong: rgba(255, 255, 255, 0.86);
-    --ink-panel-muted: rgba(255, 255, 255, 0.58);
-    --ink-border: rgba(60, 70, 60, 0.08);
-    --ink-border-strong: rgba(95, 158, 160, 0.22);
-    --ink-text: #2c3432;
-    --ink-text-soft: #4d5955;
-    --ink-text-muted: #68716d;
-    --jade: #5f9ea0;
-    --jade-soft: rgba(95, 158, 160, 0.12);
-    --bamboo: #6e8b74;
-    --bamboo-soft: rgba(110, 139, 116, 0.12);
-    --gold: #c9a34a;
-    --gold-soft: rgba(201, 163, 74, 0.12);
-    --cinnabar: #c75b5b;
-    --cinnabar-soft: rgba(199, 91, 91, 0.12);
-    --critic: #6f7fa8;
-    --critic-soft: rgba(111, 127, 168, 0.12);
-    --grid: #e8ebe8;
-    --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.06);
-    --shadow-lift: 0 14px 36px rgba(0, 0, 0, 0.08);
+    --ink-bg: #062f35;
+    --ink-bg-soft: #0d4a52;
+    --ink-panel: rgba(8, 47, 53, 0.78);
+    --ink-panel-strong: rgba(10, 58, 65, 0.88);
+    --ink-panel-muted: rgba(9, 53, 60, 0.62);
+    --ink-card-light: rgba(246, 250, 250, 0.88);
+    --ink-card-light-strong: rgba(251, 253, 253, 0.94);
+    --ink-card-text: #16363a;
+    --ink-card-text-soft: #2a6668;
+    --ink-border: rgba(108, 214, 203, 0.18);
+    --ink-border-strong: rgba(108, 214, 203, 0.32);
+    --ink-text: #f5e7a6;
+    --ink-text-soft: #f1df9e;
+    --ink-text-muted: #d8cd93;
+    --ink-heading-primary: #fff1b8;
+    --ink-heading-secondary: #f2e0a1;
+    --ink-copy: #d3d9ca;
+    --ink-copy-soft: #a9c3bf;
+    --jade: #5dcfc9;
+    --jade-soft: rgba(93, 207, 201, 0.14);
+    --bamboo: #77d8be;
+    --bamboo-soft: rgba(119, 216, 190, 0.14);
+    --gold: #f0d572;
+    --gold-soft: rgba(240, 213, 114, 0.14);
+    --cinnabar: #ff9e7f;
+    --cinnabar-soft: rgba(255, 158, 127, 0.14);
+    --critic: #93d3f2;
+    --critic-soft: rgba(147, 211, 242, 0.14);
+    --grid: rgba(138, 214, 204, 0.16);
+    --shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.26);
+    --shadow-lift: 0 20px 42px rgba(0, 0, 0, 0.34);
     --radius-xl: 28px;
     --radius-lg: 22px;
     --radius-md: 18px;
@@ -45,8 +53,8 @@ body {
     color: var(--ink-text);
     font-family: var(--font-ui);
     background:
-        radial-gradient(circle at top left, rgba(95, 158, 160, 0.03), transparent 28%),
-        radial-gradient(circle at top right, rgba(201, 163, 74, 0.025), transparent 24%),
+        radial-gradient(circle at top left, rgba(93, 207, 201, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(119, 216, 190, 0.1), transparent 24%),
         linear-gradient(180deg, var(--ink-bg) 0%, var(--ink-bg-soft) 100%);
     background-attachment: fixed;
 }
@@ -57,22 +65,28 @@ body::before {
     inset: 0;
     pointer-events: none;
     background:
-        radial-gradient(circle at 20% 18%, rgba(95, 158, 160, 0.025), transparent 20%),
-        radial-gradient(circle at 82% 10%, rgba(110, 139, 116, 0.02), transparent 18%);
+        radial-gradient(circle at 20% 18%, rgba(93, 207, 201, 0.08), transparent 22%),
+        radial-gradient(circle at 82% 10%, rgba(147, 211, 242, 0.07), transparent 18%);
 }
 
-h1,
+h1 {
+    margin: 0;
+    font-family: var(--font-heading);
+    letter-spacing: 0.01em;
+    color: var(--ink-heading-primary);
+}
+
 h2,
 h3,
 h4 {
     margin: 0;
     font-family: var(--font-heading);
     letter-spacing: 0.01em;
-    color: var(--ink-text);
+    color: var(--ink-heading-secondary);
 }
 
 p {
-    color: var(--ink-text-muted);
+    color: var(--ink-copy);
 }
 
 a {
@@ -89,12 +103,12 @@ textarea {
 
 button {
     min-height: 46px;
-    border: 1px solid rgba(60, 70, 60, 0.08);
+    border: 1px solid var(--ink-border);
     border-radius: 16px;
     padding: 11px 16px;
-    color: var(--ink-text);
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    color: var(--ink-card-text);
+    background: var(--ink-card-light);
+    box-shadow: var(--shadow-soft);
     cursor: pointer;
     transition:
         transform var(--transition-fast),
@@ -107,8 +121,8 @@ button {
 
 button:hover:not(:disabled) {
     transform: translateY(-1px);
-    color: #ffffff;
-    border-color: rgba(95, 158, 160, 0.32);
+    color: #072f35;
+    border-color: var(--ink-border-strong);
     background: var(--jade);
     box-shadow: var(--shadow-lift);
 }
@@ -125,12 +139,12 @@ button:disabled {
 button#trainBtn,
 button#testBtn,
 button#stepTrainBtn {
-    background: rgba(95, 158, 160, 0.14);
-    border-color: rgba(95, 158, 160, 0.2);
+    background: rgba(233, 246, 246, 0.92);
+    border-color: rgba(108, 214, 203, 0.28);
 }
 
 button#trainBtn:disabled {
-    color: #ffffff;
+    color: #062f35;
     background: linear-gradient(135deg, var(--jade), var(--bamboo));
     border-color: transparent;
 }
@@ -150,9 +164,9 @@ input[type="text"],
 select {
     width: 100%;
     border-radius: 14px;
-    border: 1px solid rgba(60, 70, 60, 0.08);
+    border: 1px solid var(--ink-border);
     color: var(--ink-text);
-    background: rgba(255, 255, 255, 0.88);
+    background: rgba(10, 58, 65, 0.82);
     padding: 10px 12px;
     outline: none;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
@@ -161,9 +175,9 @@ select {
 input[type="number"]:focus,
 input[type="text"]:focus,
 select:focus {
-    border-color: rgba(95, 158, 160, 0.32);
-    box-shadow: 0 0 0 4px rgba(95, 158, 160, 0.1);
-    background: rgba(255, 255, 255, 0.96);
+    border-color: var(--ink-border-strong);
+    box-shadow: 0 0 0 4px rgba(93, 207, 201, 0.14);
+    background: rgba(12, 66, 74, 0.92);
 }
 
 input[type="checkbox"] {
@@ -179,18 +193,25 @@ input[type="checkbox"] {
 }
 
 .ink-subpanel {
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(60, 70, 60, 0.08);
+    background: rgba(10, 58, 65, 0.7);
+    border: 1px solid var(--ink-border);
     border-radius: var(--radius-md);
 }
 
+.ink-light-card {
+    background: var(--ink-card-light);
+    color: var(--ink-card-text);
+    border: 1px solid rgba(108, 214, 203, 0.2);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+}
+
 .ink-title {
-    color: var(--ink-text);
+    color: var(--ink-heading-primary);
     font-family: var(--font-heading);
 }
 
 .ink-muted {
-    color: var(--ink-text-muted);
+    color: var(--ink-copy-soft);
 }
 
 ::-webkit-scrollbar {
@@ -199,10 +220,10 @@ input[type="checkbox"] {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(95, 158, 160, 0.18);
+    background: rgba(108, 214, 203, 0.24);
     border-radius: 999px;
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(10, 58, 65, 0.36);
 }

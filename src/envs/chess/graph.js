@@ -12,6 +12,29 @@ let diagnosticsChart = null;
 let distributionChart = null;
 let layoutReady = false;
 
+const DASHBOARD_COLORS = {
+  text: "#f5e7a6",
+  textMuted: "#d8cd93",
+  panel: "rgba(8, 47, 53, 0.78)",
+  panelStrong: "rgba(10, 58, 65, 0.88)",
+  border: "rgba(108, 214, 203, 0.16)",
+  borderStrong: "rgba(108, 214, 203, 0.28)",
+  reward: "#63d8d0",
+  rewardSoft: "#93ebe4",
+  steps: "#93d3f2",
+  stepsSoft: "#c1e6f8",
+  actor: "#f0d572",
+  critic: "#8fd0ee",
+  success: "#7cd8bc",
+  warning: "#ffb48b",
+  danger: "#ff9e7f",
+  entropy: "#a8dfd0",
+  neutral: "#a9c7c8",
+  tooltip: "rgba(6, 41, 46, 0.96)",
+  gridLine: "rgba(108, 214, 203, 0.12)",
+  axisLine: "rgba(108, 214, 203, 0.24)",
+};
+
 function injectStyles() {
   if (document.getElementById("training-dashboard-styles")) {
     return;
@@ -26,7 +49,7 @@ function injectStyles() {
       gap: 18px;
       margin: 0 auto;
       padding: 8px 0 28px;
-      color: var(--ink-text, #2c3432);
+      color: var(--ink-text, #f5e7a6);
       font-family: var(--font-ui, "PingFang SC", sans-serif);
     }
     .training-dashboard__header {
@@ -40,12 +63,12 @@ function injectStyles() {
       font-size: 18px;
       font-weight: 700;
       margin: 0;
-      color: var(--ink-text, #2c3432);
+      color: var(--ink-heading-primary, #fff1b8);
       font-family: var(--font-heading, serif);
     }
     .training-dashboard__subtitle {
       margin: 4px 0 0;
-      color: var(--ink-text-muted, #68716d);
+      color: var(--ink-copy, #d3d9ca);
       font-size: 13px;
     }
     .training-dashboard__cards {
@@ -55,16 +78,16 @@ function injectStyles() {
     }
     .training-dashboard__card {
       border-radius: 20px;
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid rgba(60, 70, 60, 0.08);
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+      background: rgba(14, 82, 92, 0.74);
+      border: 1px solid ${DASHBOARD_COLORS.border};
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24);
       padding: 13px 15px;
       backdrop-filter: blur(12px);
     }
     .training-dashboard__card-label {
       display: block;
       font-size: 12px;
-      color: var(--ink-text-muted, #68716d);
+      color: rgba(184, 232, 226, 0.9);
       margin-bottom: 6px;
       letter-spacing: 0.04em;
     }
@@ -72,7 +95,7 @@ function injectStyles() {
       display: block;
       font-size: 24px;
       font-weight: 700;
-      color: var(--ink-text, #2c3432);
+      color: var(--ink-text, #f5e7a6);
     }
     .training-dashboard__charts {
       display: grid;
@@ -86,9 +109,9 @@ function injectStyles() {
     }
     .training-dashboard__panel {
       border-radius: 24px;
-      background: rgba(255, 255, 255, 0.82);
-      border: 1px solid rgba(60, 70, 60, 0.08);
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+      background: rgba(8, 56, 63, 0.7);
+      border: 1px solid ${DASHBOARD_COLORS.border};
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24);
       padding: 14px;
       backdrop-filter: blur(12px);
     }
@@ -96,7 +119,7 @@ function injectStyles() {
       font-size: 18px;
       font-weight: 700;
       margin: 0 0 10px;
-      color: var(--ink-text, #2c3432);
+      color: var(--ink-heading-secondary, #f2e0a1);
     }
     .training-dashboard__chart {
       width: 100%;
@@ -119,21 +142,21 @@ function injectStyles() {
       align-items: baseline;
       padding: 10px 12px;
       border-radius: 14px;
-      background: rgba(95, 158, 160, 0.08);
+      background: rgba(14, 82, 92, 0.68);
     }
     .training-dashboard__list-label {
       font-size: 13px;
-      color: var(--ink-text, #2c3432);
+      color: var(--ink-text, #f5e7a6);
       font-weight: 600;
     }
     .training-dashboard__list-value {
       font-size: 12px;
-      color: var(--ink-text-muted, #68716d);
+      color: rgba(184, 232, 226, 0.88);
       text-align: right;
     }
     .training-dashboard__empty {
       margin: 0;
-      color: var(--ink-text-muted, #68716d);
+      color: rgba(184, 232, 226, 0.88);
       font-size: 13px;
     }
     @media (max-width: 860px) {
@@ -146,34 +169,34 @@ function injectStyles() {
 }
 
 const SERIES_COLORS = {
-  Reward: "#5F9EA0",
-  "Reward MA": "#5F9EA0",
-  Steps: "#6F7FA8",
-  "Steps MA": "#8C97B6",
-  "Actor Loss": "#D2A24C",
-  "Critic Loss": "#6F7FA8",
-  "Actor Delta": "#5F9EA0",
-  "Critic Delta": "#6E8B74",
-  "Ratio Mean": "#5F9EA0",
-  "Ratio Min": "#A0AFCA",
-  "Ratio Max": "#C75B5B",
-  Entropy: "#A66DDA",
-  "Adv Mean": "#6E8B74",
-  "Adv Std": "#D2A24C",
-  "State Nonzero": "#8A9591",
-  "Legal Actions": "#6E8B74",
-  "Legal Rate": "#5F9EA0",
-  "Invalid/Valid": "#C75B5B",
-  "Repeat Move Rate": "#C75B5B",
-  "Repeat State Rate": "#D28D4C",
-  "Attack Move Rate": "#6E8B74",
-  "Win Episodes": "#6E8B74",
-  "Loss Episodes": "#C75B5B",
-  "Truncated Episodes": "#A0AFCA",
-  "Q Delta": "#C75B5B",
-  Epsilon: "#C9A34A",
-  "Max Q": "#5F9EA0",
-  "Visited States": "#6F7FA8",
+  Reward: DASHBOARD_COLORS.reward,
+  "Reward MA": DASHBOARD_COLORS.rewardSoft,
+  Steps: DASHBOARD_COLORS.steps,
+  "Steps MA": DASHBOARD_COLORS.stepsSoft,
+  "Actor Loss": DASHBOARD_COLORS.actor,
+  "Critic Loss": DASHBOARD_COLORS.critic,
+  "Actor Delta": DASHBOARD_COLORS.reward,
+  "Critic Delta": DASHBOARD_COLORS.success,
+  "Ratio Mean": DASHBOARD_COLORS.reward,
+  "Ratio Min": DASHBOARD_COLORS.neutral,
+  "Ratio Max": DASHBOARD_COLORS.danger,
+  Entropy: DASHBOARD_COLORS.entropy,
+  "Adv Mean": DASHBOARD_COLORS.success,
+  "Adv Std": DASHBOARD_COLORS.actor,
+  "State Nonzero": DASHBOARD_COLORS.neutral,
+  "Legal Actions": DASHBOARD_COLORS.success,
+  "Legal Rate": DASHBOARD_COLORS.reward,
+  "Invalid/Valid": DASHBOARD_COLORS.danger,
+  "Repeat Move Rate": DASHBOARD_COLORS.danger,
+  "Repeat State Rate": DASHBOARD_COLORS.warning,
+  "Attack Move Rate": DASHBOARD_COLORS.success,
+  "Win Episodes": DASHBOARD_COLORS.success,
+  "Loss Episodes": DASHBOARD_COLORS.danger,
+  "Truncated Episodes": DASHBOARD_COLORS.neutral,
+  "Q Delta": DASHBOARD_COLORS.danger,
+  Epsilon: DASHBOARD_COLORS.actor,
+  "Max Q": DASHBOARD_COLORS.reward,
+  "Visited States": DASHBOARD_COLORS.steps,
 };
 
 function findSeriesColor(name) {
@@ -325,15 +348,15 @@ function renderCards(records, options) {
 
   const cards = buildCards(records, options);
   const toneForLabel = (label) => {
-    if (label.includes("Reward")) return "#5F9EA0";
-    if (label.includes("Success") || label.includes("Win")) return "#6E8B74";
-    if (label.includes("Loss") || label.includes("Invalid")) return "#C75B5B";
-    if (label.includes("Episode")) return "#C9A34A";
-    if (label.includes("Critic")) return "#6F7FA8";
-    if (label.includes("Actor")) return "#D2A24C";
-    if (label.includes("Entropy")) return "#A66DDA";
-    if (label.includes("Repeat")) return "#C75B5B";
-    return "#2C3432";
+    if (label.includes("Reward")) return DASHBOARD_COLORS.reward;
+    if (label.includes("Success") || label.includes("Win")) return DASHBOARD_COLORS.success;
+    if (label.includes("Loss") || label.includes("Invalid")) return DASHBOARD_COLORS.danger;
+    if (label.includes("Episode")) return DASHBOARD_COLORS.actor;
+    if (label.includes("Critic")) return DASHBOARD_COLORS.critic;
+    if (label.includes("Actor")) return DASHBOARD_COLORS.actor;
+    if (label.includes("Entropy")) return DASHBOARD_COLORS.entropy;
+    if (label.includes("Repeat")) return DASHBOARD_COLORS.warning;
+    return DASHBOARD_COLORS.text;
   };
   cardsEl.innerHTML = cards.map((card) => `
     <div class="training-dashboard__card">
@@ -448,7 +471,7 @@ function rewardDistributionOption(records) {
         textStyle: {
           fontSize: 16,
           fontWeight: 700,
-          color: "#2C3432",
+          color: DASHBOARD_COLORS.text,
           fontFamily: '"STSong", "Songti SC", "Noto Serif SC", serif',
         },
       },
@@ -458,7 +481,7 @@ function rewardDistributionOption(records) {
         top: "middle",
         style: {
           text: "No outcome reward data yet",
-          fill: "#68716D",
+          fill: DASHBOARD_COLORS.textMuted,
           fontSize: 13,
         },
       },
@@ -476,20 +499,20 @@ function rewardDistributionOption(records) {
   }));
 
   return {
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
     color: Object.values(SERIES_COLORS),
     animationDuration: 300,
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "shadow" },
-      backgroundColor: "rgba(255, 255, 255, 0.96)",
-      borderColor: "rgba(60, 70, 60, 0.08)",
+      backgroundColor: DASHBOARD_COLORS.tooltip,
+      borderColor: DASHBOARD_COLORS.borderStrong,
       borderWidth: 1,
-      textStyle: { color: "#2C3432", fontSize: 13 },
+      textStyle: { color: DASHBOARD_COLORS.text, fontSize: 13 },
     },
     legend: {
       top: 8,
-      textStyle: { color: "#68716D", fontSize: 12 },
+      textStyle: { color: DASHBOARD_COLORS.textMuted, fontSize: 12 },
     },
     grid: {
       left: "7%",
@@ -502,26 +525,26 @@ function rewardDistributionOption(records) {
       type: "category",
       data: distribution.labels,
       axisLabel: {
-        color: "#68716D",
+        color: DASHBOARD_COLORS.textMuted,
         fontSize: 11,
         rotate: 18,
       },
       axisLine: {
-        lineStyle: { color: "#D6DBD8" },
+        lineStyle: { color: DASHBOARD_COLORS.axisLine },
       },
     },
     yAxis: {
       type: "value",
       name: "Episodes",
-      axisLabel: { color: "#68716D", fontSize: 12 },
+      axisLabel: { color: DASHBOARD_COLORS.textMuted, fontSize: 12 },
       axisLine: {
         show: true,
-        lineStyle: { color: "#D6DBD8" },
+        lineStyle: { color: DASHBOARD_COLORS.axisLine },
       },
       splitLine: {
-        lineStyle: { color: "#E8EBE8" },
+        lineStyle: { color: DASHBOARD_COLORS.gridLine },
       },
-      nameTextStyle: { color: "#68716D", fontSize: 12 },
+      nameTextStyle: { color: DASHBOARD_COLORS.textMuted, fontSize: 12 },
     },
     series,
   };
@@ -697,7 +720,7 @@ function selectedLegendMap(series, mode, chartKey) {
 
 function baseChartOption(title, xAxisData, yAxisNames, series, mode, chartKey) {
   return {
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
     color: Object.values(SERIES_COLORS),
     animationDuration: 300,
     title: {
@@ -705,17 +728,17 @@ function baseChartOption(title, xAxisData, yAxisNames, series, mode, chartKey) {
       textStyle: {
         fontSize: 18,
         fontWeight: 700,
-        color: "#2C3432",
+        color: DASHBOARD_COLORS.text,
         fontFamily: '"STSong", "Songti SC", "Noto Serif SC", serif',
       },
     },
     tooltip: {
       trigger: "axis",
-      backgroundColor: "rgba(255, 255, 255, 0.96)",
-      borderColor: "rgba(60, 70, 60, 0.08)",
+      backgroundColor: DASHBOARD_COLORS.tooltip,
+      borderColor: DASHBOARD_COLORS.borderStrong,
       borderWidth: 1,
       textStyle: {
-        color: "#2C3432",
+        color: DASHBOARD_COLORS.text,
         fontSize: 14,
       },
       extraCssText: "box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 14px;",
@@ -728,14 +751,14 @@ function baseChartOption(title, xAxisData, yAxisNames, series, mode, chartKey) {
       itemHeight: 10,
       selected: selectedLegendMap(series, mode, chartKey),
       textStyle: {
-        color: "#68716D",
+        color: DASHBOARD_COLORS.textMuted,
         fontSize: 13,
       },
       pageTextStyle: {
-        color: "#68716D",
+        color: DASHBOARD_COLORS.textMuted,
         fontSize: 12,
       },
-      pageIconColor: "#5F9EA0",
+      pageIconColor: DASHBOARD_COLORS.reward,
     },
     grid: {
       left: "5%",
@@ -749,17 +772,17 @@ function baseChartOption(title, xAxisData, yAxisNames, series, mode, chartKey) {
       name: "Episode",
       data: xAxisData,
       axisLine: {
-        lineStyle: { color: "#D6DBD8" },
+        lineStyle: { color: DASHBOARD_COLORS.axisLine },
       },
       axisLabel: {
-        color: "#68716D",
+        color: DASHBOARD_COLORS.textMuted,
         fontSize: 12,
       },
       splitLine: {
         show: false,
       },
       nameTextStyle: {
-        color: "#68716D",
+        color: DASHBOARD_COLORS.textMuted,
         fontSize: 12,
       },
     },
@@ -769,19 +792,19 @@ function baseChartOption(title, xAxisData, yAxisNames, series, mode, chartKey) {
       position: index === 0 ? "left" : "right",
       axisLine: {
         show: true,
-        lineStyle: { color: "#D6DBD8" },
+        lineStyle: { color: DASHBOARD_COLORS.axisLine },
       },
       axisLabel: {
-        color: "#68716D",
+        color: DASHBOARD_COLORS.textMuted,
         fontSize: 12,
       },
       splitLine: {
         lineStyle: {
-          color: "#E8EBE8",
+          color: DASHBOARD_COLORS.gridLine,
         },
       },
       nameTextStyle: {
-        color: "#68716D",
+        color: DASHBOARD_COLORS.textMuted,
         fontSize: 12,
       },
     })),

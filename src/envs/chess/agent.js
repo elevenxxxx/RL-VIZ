@@ -1083,6 +1083,7 @@ export class Agent {
     const onProgress = typeof options === "object" ? options.onProgress : null;
     const onEpisode = typeof options === "object" ? options.onEpisode : null;
     const chartUpdateInterval = typeof options === "object" ? (options.chartUpdateInterval ?? 1) : 1;
+    const episodeTraceInterval = typeof options === "object" ? (options.episodeTraceInterval ?? 1) : 1;
     const logEpisodes = new Set([1, 100, 200, 300, 400]);
     this.env.render_mode = "none"
     let history = [];
@@ -1176,24 +1177,28 @@ export class Agent {
         metrics,
         history,
       };
-      const episodeTrace = createEpisodeTrace({
-        envType: "chess",
-        episode: i,
-        totalReward: buffer.viewerSteps.reduce((sum, step) => sum + (step.reward ?? 0), 0),
-        totalSteps: buffer.viewerSteps.length,
-        summary: {
-          outcome,
-          successLabel: didWin ? "Red Win" : outcome === "loss" ? "Black Win" : "Truncated",
-        },
-        metadata: {},
-        steps: buffer.viewerSteps,
-      });
-
       if (onProgress) {
         await onProgress(record, progressInfo);
       }
 
-      if (onEpisode) {
+      const shouldEmitEpisodeTrace =
+        (i === 0) ||
+        ((i + 1) % episodeTraceInterval === 0) ||
+        (i === episodes - 1);
+
+      if (onEpisode && shouldEmitEpisodeTrace) {
+        const episodeTrace = createEpisodeTrace({
+          envType: "chess",
+          episode: i,
+          totalReward: buffer.viewerSteps.reduce((sum, step) => sum + (step.reward ?? 0), 0),
+          totalSteps: buffer.viewerSteps.length,
+          summary: {
+            outcome,
+            successLabel: didWin ? "Red Win" : outcome === "loss" ? "Black Win" : "Truncated",
+          },
+          metadata: {},
+          steps: buffer.viewerSteps,
+        });
         await onEpisode({
           ...progressInfo,
           record,

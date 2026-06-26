@@ -11,13 +11,16 @@
     <!-- <script type="module" src="/src/envs/maze/maze.js"></script> -->
     <style>
         body {
-            display: flex;
-            overflow-x: auto;
+            display: grid;
+            overflow-x: hidden;
             overflow-y: auto;
-            flex-direction: column;
             min-height: 100vh;
             position: relative;
-            padding: 24px;
+            padding: 20px;
+            box-sizing: border-box;
+            gap: 14px;
+            align-content: start;
+            justify-items: center;
         }
 
         #cfgQValue {
@@ -49,17 +52,20 @@
         }
 
         #show {
-            flex: 1;
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr;
+            align-items: stretch;
             width: 100%;
-            gap: 24px;
+            gap: 16px;
             position: relative;
-            padding: 24px;
+            padding: 20px;
             border-radius: 28px;
-            background: rgba(255, 255, 255, 0.75);
-            border: 1px solid rgba(60, 70, 60, 0.08);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+            background: var(--ink-panel);
+            border: 1px solid var(--ink-border);
+            box-shadow: var(--shadow-soft);
             backdrop-filter: blur(12px);
+            width: min(1240px, 100%);
+            margin: 0 auto;
         }
 
         #maze_info {
@@ -72,19 +78,34 @@
         }
 
         #game {
-            min-height: 800px;
-            padding: 80px 20px;
+            min-height: 0;
+            padding: 80px 20px 24px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            flex: 1;
+            min-width: 0;
+            width: 100%;
+            position: relative;
+            overflow: auto;
+            box-sizing: border-box;
+            justify-self: stretch;
+            border-radius: 24px;
+            background: rgba(10, 58, 65, 0.56);
+            border: 1px solid rgba(108, 214, 203, 0.14);
+        }
 
+        #game canvas {
+            display: block;
+            width: auto !important;
+            height: auto !important;
+            max-width: 100%;
+            max-height: calc(100vh - 180px);
         }
 
         #maze_tooltip {
             position: absolute;
-            background: rgba(255, 255, 255, 0.94);
+            background: rgba(8, 47, 53, 0.94);
             color: var(--ink-text);
             padding: 10px 12px;
             border-radius: 12px;
@@ -107,48 +128,73 @@
         }
 
         #controls {
-            width: 316px;
+            width: 100%;
+            max-width: none;
             padding: 22px;
-            display: flex;
-            flex-direction: column;
+            display: grid;
             gap: 14px;
             border-radius: 24px;
-            background: rgba(255, 255, 255, 0.72);
-            border: 1px solid rgba(60, 70, 60, 0.08);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+            background: var(--ink-panel-strong);
+            border: 1px solid var(--ink-border);
+            box-shadow: var(--shadow-soft);
             backdrop-filter: blur(12px);
+            box-sizing: border-box;
+        }
+
+        .controls-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .controls-grid--actions {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .controls-grid--settings {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .controls-section-title {
+            margin: 2px 2px 0;
+            font-size: 12px;
+            color: var(--ink-heading-secondary);
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
         }
 
         #maze_explainer {
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            justify-content: flex-start;
+            align-items: stretch;
             gap: 10px;
             padding: 18px;
-            margin-top: 18px;
             border: 1px solid rgba(60, 70, 60, 0.08);
             border-radius: 24px;
-            background: rgba(255, 255, 255, 0.75);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+            background: var(--ink-panel);
+            box-shadow: var(--shadow-soft);
+            width: min(1240px, 100%);
+            margin: 0 auto;
+            box-sizing: border-box;
         }
 
         #maze_explainer_text {
-            width: 70%;
+            width: min(960px, 100%);
             font-size: 22px;
+            margin: 0 auto;
         }
 
         #QTable {
             position: absolute;
             left: 10px;
             top: 80px;
-            background: rgba(255, 255, 255, 0.88);
+            background: rgba(8, 47, 53, 0.88);
             color: var(--ink-text);
             border-radius: 16px;
             padding: 10px;
             font-size: 16px;
             border: 1px solid rgba(60, 70, 60, 0.08);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+            box-shadow: var(--shadow-soft);
             backdrop-filter: blur(6px);
         }
 
@@ -156,13 +202,13 @@
             position: absolute;
             left: 10px;
             top: 10px;
-            background: rgba(255, 255, 255, 0.88);
+            background: rgba(8, 47, 53, 0.88);
             color: var(--ink-text);
             border-radius: 16px;
             padding: 6px;
             font-size: 16px;
             border: 1px solid rgba(60, 70, 60, 0.08);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+            box-shadow: var(--shadow-soft);
             backdrop-filter: blur(6px);
             height: 50px;
             display: flex;
@@ -241,19 +287,50 @@
             width: 100%;
         }
 
+        .controls-grid--actions button {
+            color: var(--ink-text);
+            background: rgba(8, 56, 63, 0.96);
+            border-color: rgba(108, 214, 203, 0.28);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+        }
+
+        .controls-grid--actions button:hover:not(:disabled) {
+            color: #072f35;
+            background: var(--jade);
+            border-color: var(--ink-border-strong);
+        }
+
+        .controls-grid--actions button#trainBtn,
+        .controls-grid--actions button#stepTrainBtn,
+        .controls-grid--actions button#testBtn {
+            color: var(--ink-text);
+            background: rgba(8, 56, 63, 0.96);
+            border-color: rgba(108, 214, 203, 0.28);
+        }
+
+        .controls-grid--actions #stopBtn {
+            color: #ffffff;
+            background: var(--cinnabar);
+            border-color: rgba(199, 91, 91, 0.18);
+        }
+
+        .controls-grid--actions #stopBtn:hover:not(:disabled) {
+            color: #ffffff;
+            background: #b84c4c;
+        }
+
         #maze_steps {
             position: absolute;
-            bottom: 150px;
-            right: 230px;
-
-            /* z-index: 999; */
-
+            top: 96px;
+            right: 18px;
+            max-width: min(260px, 24vw);
             backdrop-filter: blur(10px);
             border-radius: 12px;
-
             display: flex;
-            justify-content: center;
-            font-size: 24px;
+            justify-content: flex-end;
+            font-size: 20px;
+            z-index: 20;
+            pointer-events: none;
         }
 
         .step-container {
@@ -265,7 +342,10 @@
             border: 1px solid rgba(120, 160, 255, 0.15);
 
             box-shadow: 0 6px 25px rgba(0, 0, 0, 0.35);
-            font-size: 24px;
+            font-size: 18px;
+            width: 100%;
+            box-sizing: border-box;
+            pointer-events: auto;
         }
 
         .flow-title {
@@ -290,7 +370,7 @@
             padding: 8px 12px;
             border-radius: 10px;
 
-            font-size: 20px;
+            font-size: 17px;
             color: #e4edf4;
 
             border: 1px solid rgba(255, 255, 255, 0.06);
@@ -377,41 +457,100 @@
             border-radius: 14px;
             background: rgba(255, 255, 255, 0.76);
             border: 1px solid rgba(60, 70, 60, 0.08);
-            color: var(--ink-text-soft);
+            color: var(--ink-card-text-soft);
         }
 
         .cfgRow label {
             font-size: 13px;
-            color: var(--ink-text-soft);
+            color: var(--ink-card-text-soft);
+        }
+
+        .cfgRow input[type="number"] {
+            width: 100%;
+            min-width: 0;
         }
 
         #graph {
             width: 100%;
             display: flex;
             justify-content: center;
-            padding-top: 18px;
+            padding-top: 0;
         }
 
         #graph-container {
             width: min(1180px, 100%);
-            min-height: 600px;
+            min-height: 0;
+        }
+
+        #graph-container:empty {
+            display: none;
+        }
+
+        #episode-viewer-root-maze {
+            width: min(1240px, 100%);
+            margin: 0 auto;
         }
 
         @media (max-width: 1180px) {
-            #show {
-                flex-direction: column;
-            }
-
-            #controls {
-                width: 100%;
-            }
-
             #maze_explainer_text {
                 width: 100%;
             }
 
             #game {
-                grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+                padding: 72px 12px 20px;
+            }
+
+            #game canvas {
+                max-width: 100%;
+                max-height: min(70vh, 900px);
+            }
+
+            #maze_steps {
+                top: 88px;
+                right: 12px;
+                max-width: 220px;
+            }
+
+            .controls-grid--settings {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 780px) {
+            body {
+                padding: 12px;
+            }
+
+            #show {
+                padding: 12px;
+                gap: 16px;
+            }
+
+            #game {
+                padding: 64px 8px 16px;
+            }
+
+            #maze_info {
+                top: 20px;
+                left: 16px;
+            }
+
+            #maze_steps {
+                position: static;
+                width: 100%;
+                max-width: none;
+                margin-top: 12px;
+                justify-content: center;
+                pointer-events: auto;
+            }
+
+            .step-container {
+                max-width: 100%;
+            }
+
+            .controls-grid--actions,
+            .controls-grid--settings {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -438,20 +577,23 @@
         </div>
 
         <div id="controls">
-            <button id="resetBtn">复位智能体</button>
-            <button id="resetAgentBtn">清空智能体</button>
-            <button id="fresh">刷新页面</button>
+            <div class="controls-section-title">Actions</div>
+            <div class="controls-grid controls-grid--actions">
+                <button id="resetBtn">复位智能体</button>
+                <button id="resetAgentBtn">清空智能体</button>
+                <button id="fresh">刷新页面</button>
+                <button id="trainBtn">训练</button>
+                <button id="stepTrainBtn">训练一轮</button>
+                <button id="stopBtn">中止训练</button>
+                <button id="stepBtn">下一步</button>
+                <button id="stepRenderBtn">分阶段步进</button>
+                <button id="testBtn">测试</button>
+                <button id="debugBtn">打印Q表</button>
+                <button id="restoreBtn">恢复默认设置</button>
+            </div>
 
-            <button id="trainBtn">训练</button>
-            <button id="stepTrainBtn">训练一轮</button>
-            <button id="stopBtn">中止训练</button>
-            <button id="stepBtn">下一步</button>
-            <button id="stepRenderBtn">分阶段步进</button>
-            <button id="testBtn">测试</button>
-
-            <button id="debugBtn">打印Q表</button>
-            <button id="restoreBtn">恢复默认设置</button>
-
+            <div class="controls-section-title">Settings</div>
+            <div class="controls-grid controls-grid--settings">
             <div class="cfgRow">
                 <label>显示训练过程动画</label>
                 <input type="checkbox" id="cfgRenderTrain" checked />
@@ -531,13 +673,13 @@
                 <label>ε 探索因子</label>
                 <input type="number" step="0.01" id="cfgEpsilon" value="0.1" />
             </div>
+            </div>
 
         </div>
 
 
     </div>
     <div id="maze_explainer">
-
         <div id="maze_explainer_text">
 
         </div>
@@ -587,7 +729,7 @@
             document.getElementById('cfgGamma').value = config.gamma;
             document.getElementById('cfgEpsilon').value = config.epsilon;
             document.getElementById("currentEpisode").textContent = `episode: ${config.currentEpisode}`;
-            document.getElementById('cfgConsole').checked = false;
+            document.getElementById('cfgConsole').checked = true;
             ConsoleUpdate();
             ///refreshSteps();
             initFlow(config.stepMode ? "train" : "test");

@@ -1,6 +1,21 @@
 import { id2piece, num2rc } from "../chess/utils.js";
 
-const VIEWER_MAX_EPISODES = 20;
+const DEFAULT_VIEWER_MAX_EPISODES = 20;
+const VIEWER_THEME = {
+  text: "#f5e7a6",
+  textMuted: "#d8cd93",
+  panel: "rgba(8, 47, 53, 0.78)",
+  panelStrong: "rgba(10, 58, 65, 0.88)",
+  panelSoft: "rgba(12, 66, 74, 0.62)",
+  border: "rgba(108, 214, 203, 0.16)",
+  borderStrong: "rgba(108, 214, 203, 0.28)",
+  reward: "#63d8d0",
+  success: "#7cd8bc",
+  danger: "#ff9e7f",
+  tooltip: "rgba(6, 41, 46, 0.96)",
+  axis: "rgba(108, 214, 203, 0.24)",
+  grid: "rgba(108, 214, 203, 0.12)",
+};
 
 function injectEpisodeViewerStyles() {
   if (document.getElementById("episode-viewer-styles")) return;
@@ -13,13 +28,16 @@ function injectEpisodeViewerStyles() {
       margin: 18px auto 0;
       display: grid;
       gap: 16px;
-      color: var(--ink-text, #2C3432);
+      color: var(--ink-text, #f5e7a6);
+    }
+    .episode-viewer--empty {
+      gap: 0;
     }
     .episode-viewer__shell {
       border-radius: 28px;
-      background: rgba(255, 255, 255, 0.78);
-      border: 1px solid rgba(60, 70, 60, 0.08);
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+      background: ${VIEWER_THEME.panel};
+      border: 1px solid ${VIEWER_THEME.border};
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.24);
       backdrop-filter: blur(12px);
       padding: 18px;
       display: grid;
@@ -36,10 +54,11 @@ function injectEpisodeViewerStyles() {
       margin: 0;
       font-size: 20px;
       font-weight: 700;
+      color: var(--ink-heading-primary, #fff1b8);
     }
     .episode-viewer__subtitle {
       margin: 6px 0 0;
-      color: var(--ink-text-muted, #68716D);
+      color: var(--ink-copy, #d3d9ca);
       font-size: 13px;
       line-height: 1.6;
     }
@@ -47,9 +66,9 @@ function injectEpisodeViewerStyles() {
       min-width: 180px;
       padding: 10px 12px;
       border-radius: 14px;
-      border: 1px solid rgba(60, 70, 60, 0.12);
-      background: rgba(255, 255, 255, 0.95);
-      color: var(--ink-text, #2C3432);
+      border: 1px solid ${VIEWER_THEME.border};
+      background: ${VIEWER_THEME.panelSoft};
+      color: var(--ink-text, #f5e7a6);
     }
     .episode-viewer__controls {
       display: flex;
@@ -65,9 +84,9 @@ function injectEpisodeViewerStyles() {
     .episode-viewer__step-indicator {
       padding: 10px 12px;
       border-radius: 14px;
-      background: rgba(255, 255, 255, 0.82);
-      border: 1px solid rgba(60, 70, 60, 0.08);
-      color: var(--ink-text-muted, #68716D);
+      background: ${VIEWER_THEME.panelSoft};
+      border: 1px solid ${VIEWER_THEME.border};
+      color: var(--ink-text-muted, #d8cd93);
       font-size: 13px;
     }
     .episode-viewer__summary {
@@ -78,13 +97,13 @@ function injectEpisodeViewerStyles() {
     .episode-viewer__summary-card {
       padding: 12px 14px;
       border-radius: 18px;
-      background: rgba(255, 255, 255, 0.86);
-      border: 1px solid rgba(60, 70, 60, 0.06);
+      background: rgba(14, 82, 92, 0.74);
+      border: 1px solid ${VIEWER_THEME.border};
     }
     .episode-viewer__summary-label {
       display: block;
       font-size: 12px;
-      color: var(--ink-text-muted, #68716D);
+      color: rgba(184, 232, 226, 0.9);
       margin-bottom: 6px;
       letter-spacing: 0.04em;
     }
@@ -92,31 +111,35 @@ function injectEpisodeViewerStyles() {
       display: block;
       font-size: 20px;
       font-weight: 700;
-      color: var(--ink-text, #2C3432);
+      color: var(--ink-text, #f5e7a6);
     }
     .episode-viewer__grid {
       display: grid;
       grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
       gap: 16px;
       align-items: stretch;
+      min-width: 0;
     }
     .episode-viewer__panel {
       border-radius: 24px;
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid rgba(60, 70, 60, 0.08);
+      background: rgba(8, 56, 63, 0.7);
+      border: 1px solid ${VIEWER_THEME.border};
       padding: 14px;
       display: grid;
       gap: 12px;
       min-height: 100%;
+      min-width: 0;
+      overflow: hidden;
     }
     .episode-viewer__panel-title {
       margin: 0;
       font-size: 18px;
       font-weight: 700;
+      color: var(--ink-heading-secondary, #f2e0a1);
     }
     .episode-viewer__empty {
       margin: 0;
-      color: var(--ink-text-muted, #68716D);
+      color: rgba(184, 232, 226, 0.88);
       font-size: 13px;
     }
     .episode-viewer__rollout-stage {
@@ -124,8 +147,8 @@ function injectEpisodeViewerStyles() {
       display: grid;
       place-items: center;
       border-radius: 20px;
-      background: rgba(243, 244, 242, 0.85);
-      border: 1px solid rgba(60, 70, 60, 0.08);
+      background: rgba(8, 56, 63, 0.58);
+      border: 1px solid ${VIEWER_THEME.border};
       overflow: hidden;
       padding: 14px;
     }
@@ -137,32 +160,49 @@ function injectEpisodeViewerStyles() {
     .episode-viewer__meta-item {
       padding: 10px 12px;
       border-radius: 14px;
-      background: rgba(95, 158, 160, 0.06);
-      border: 1px solid rgba(95, 158, 160, 0.08);
+      background: rgba(14, 82, 92, 0.68);
+      border: 1px solid ${VIEWER_THEME.border};
     }
     .episode-viewer__meta-label {
       display: block;
       font-size: 12px;
-      color: var(--ink-text-muted, #68716D);
+      color: rgba(184, 232, 226, 0.9);
       margin-bottom: 4px;
     }
     .episode-viewer__meta-value {
       display: block;
       font-size: 14px;
-      color: var(--ink-text, #2C3432);
+      color: var(--ink-text, #f5e7a6);
       line-height: 1.5;
       word-break: break-word;
     }
     .episode-viewer__charts {
       display: grid;
       gap: 16px;
+      min-width: 0;
     }
     .episode-viewer__chart {
       width: 100%;
       height: 220px;
+      min-width: 0;
     }
     .episode-viewer__chart--compact {
       height: 200px;
+    }
+    .episode-viewer__empty-note {
+      margin: 0;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: ${VIEWER_THEME.panelSoft};
+      border: 1px dashed ${VIEWER_THEME.borderStrong};
+      color: var(--ink-copy-soft, #a9c3bf);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .episode-viewer--empty .episode-viewer__controls,
+    .episode-viewer--empty .episode-viewer__summary,
+    .episode-viewer--empty .episode-viewer__grid {
+      display: none;
     }
     .episode-viewer__chess-board {
       display: grid;
@@ -253,7 +293,7 @@ function ensureEcharts() {
 
 function chartBaseOption() {
   return {
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
     animationDuration: 240,
     grid: {
       left: "8%",
@@ -264,36 +304,36 @@ function chartBaseOption() {
     },
     tooltip: {
       trigger: "axis",
-      backgroundColor: "rgba(255,255,255,0.96)",
-      borderColor: "rgba(60,70,60,0.08)",
+      backgroundColor: VIEWER_THEME.tooltip,
+      borderColor: VIEWER_THEME.borderStrong,
       borderWidth: 1,
       textStyle: {
-        color: "#2C3432",
+        color: VIEWER_THEME.text,
         fontSize: 13,
       },
     },
     xAxis: {
       axisLine: {
-        lineStyle: { color: "#D6DBD8" },
+        lineStyle: { color: VIEWER_THEME.axis },
       },
       axisLabel: {
-        color: "#68716D",
+        color: VIEWER_THEME.textMuted,
         fontSize: 12,
       },
       splitLine: {
-        lineStyle: { color: "#E8EBE8" },
+        lineStyle: { color: VIEWER_THEME.grid },
       },
     },
     yAxis: {
       axisLine: {
-        lineStyle: { color: "#D6DBD8" },
+        lineStyle: { color: VIEWER_THEME.axis },
       },
       axisLabel: {
-        color: "#68716D",
+        color: VIEWER_THEME.textMuted,
         fontSize: 12,
       },
       splitLine: {
-        lineStyle: { color: "#E8EBE8" },
+        lineStyle: { color: VIEWER_THEME.grid },
       },
     },
   };
@@ -310,7 +350,7 @@ function buildPolicyOption(step) {
         top: "middle",
         style: {
           text: "No policy data for this step",
-          fill: "#68716D",
+          fill: VIEWER_THEME.textMuted,
           fontSize: 13,
         },
       },
@@ -334,7 +374,7 @@ function buildPolicyOption(step) {
       type: "value",
       max: 1,
       name: "Probability",
-      nameTextStyle: { color: "#68716D", fontSize: 12 },
+      nameTextStyle: { color: VIEWER_THEME.textMuted, fontSize: 12 },
     },
     yAxis: {
       ...chartBaseOption().yAxis,
@@ -347,13 +387,13 @@ function buildPolicyOption(step) {
         type: "bar",
         data: entries.map((entry) => entry.probability ?? 0),
         itemStyle: {
-          color: "#5F9EA0",
+          color: "#63d8d0",
           borderRadius: [0, 8, 8, 0],
         },
         label: {
           show: true,
           position: "right",
-          color: "#2C3432",
+          color: VIEWER_THEME.text,
           formatter: ({ value }) => `${(value * 100).toFixed(1)}%`,
         },
       },
@@ -362,8 +402,8 @@ function buildPolicyOption(step) {
 }
 
 function rewardColor(value) {
-  if (value > 0) return "#6E8B74";
-  if (value < 0) return "#C75B5B";
+  if (value > 0) return VIEWER_THEME.success;
+  if (value < 0) return VIEWER_THEME.danger;
   return "#AAB4B1";
 }
 
@@ -379,7 +419,7 @@ function buildRewardOption(step) {
         top: "middle",
         style: {
           text: "No reward breakdown for this step",
-          fill: "#68716D",
+          fill: VIEWER_THEME.textMuted,
           fontSize: 13,
         },
       },
@@ -392,7 +432,7 @@ function buildRewardOption(step) {
       ...chartBaseOption().xAxis,
       type: "value",
       name: "Reward",
-      nameTextStyle: { color: "#68716D", fontSize: 12 },
+      nameTextStyle: { color: VIEWER_THEME.textMuted, fontSize: 12 },
     },
     yAxis: {
       ...chartBaseOption().yAxis,
@@ -411,7 +451,7 @@ function buildRewardOption(step) {
         label: {
           show: true,
           position: "right",
-          color: "#2C3432",
+          color: VIEWER_THEME.text,
           formatter: ({ value }) => formatNumber(value, 3),
         },
       },
@@ -550,8 +590,8 @@ function renderRollout(container, trace, step) {
 function renderSummary(summaryEl, trace, step) {
   const cards = [
     { label: "Episode", value: String((trace?.episode ?? 0) + 1), color: "#C9A34A" },
-    { label: "Total Reward", value: formatNumber(trace?.totalReward, 3), color: "#5F9EA0" },
-    { label: "Total Steps", value: formatNumber(trace?.totalSteps, 0), color: "#2C3432" },
+    { label: "Total Reward", value: formatNumber(trace?.totalReward, 3), color: VIEWER_THEME.reward },
+    { label: "Total Steps", value: formatNumber(trace?.totalSteps, 0), color: VIEWER_THEME.text },
     { label: "Step Reward", value: formatNumber(step?.reward, 3), color: rewardColor(step?.reward ?? 0) },
   ];
 
@@ -586,6 +626,7 @@ export function createEpisodeViewer({
   containerId,
   title = "Single Episode RL Viewer",
   subtitle = "Replay one training episode with rollout, policy, and reward details.",
+  maxEpisodes = DEFAULT_VIEWER_MAX_EPISODES,
 } = {}) {
   const root = document.getElementById(containerId);
   if (!root) {
@@ -607,6 +648,7 @@ export function createEpisodeViewer({
         </div>
         <select class="episode-viewer__episode-select" id="${containerId}-episode-select"></select>
       </div>
+      <p class="episode-viewer__empty-note" id="${containerId}-empty-note">训练产生 episode 后，这里会显示单回合回放、Policy Layer 和 Reward Layer。</p>
       <div class="episode-viewer__controls">
         <button class="episode-viewer__button" id="${containerId}-prev">上一步</button>
         <button class="episode-viewer__button" id="${containerId}-play">自动播放</button>
@@ -639,6 +681,7 @@ export function createEpisodeViewer({
   const rolloutEl = document.getElementById(`${containerId}-rollout`);
   const summaryEl = document.getElementById(`${containerId}-summary`);
   const metaEl = document.getElementById(`${containerId}-meta`);
+  const emptyNote = document.getElementById(`${containerId}-empty-note`);
   const echarts = ensureEcharts();
   const policyChart = echarts ? echarts.init(document.getElementById(`${containerId}-policy-chart`)) : null;
   const rewardChart = echarts ? echarts.init(document.getElementById(`${containerId}-reward-chart`)) : null;
@@ -685,6 +728,8 @@ export function createEpisodeViewer({
     const trace = currentTrace();
     const step = currentStep();
     if (!trace || !step) {
+      root.classList.add("episode-viewer--empty");
+      if (emptyNote) emptyNote.style.display = "block";
       rolloutEl.innerHTML = `<p class="episode-viewer__empty">暂无 episode 轨迹数据。</p>`;
       summaryEl.innerHTML = "";
       metaEl.innerHTML = "";
@@ -694,6 +739,8 @@ export function createEpisodeViewer({
       return;
     }
 
+    root.classList.remove("episode-viewer--empty");
+    if (emptyNote) emptyNote.style.display = "none";
     stepIndicator.textContent = `Step ${selectedStepIndex + 1} / ${trace.steps.length}`;
     renderSummary(summaryEl, trace, step);
     renderMeta(metaEl, trace, step);
@@ -777,7 +824,7 @@ export function createEpisodeViewer({
       renderCurrent();
     },
     setEpisodes(nextEpisodes = []) {
-      episodes = nextEpisodes.slice(-VIEWER_MAX_EPISODES);
+      episodes = nextEpisodes.slice(-maxEpisodes);
       selectedEpisodeIndex = episodes.length > 0 ? episodes.length - 1 : -1;
       selectedStepIndex = 0;
       stopAutoplay();
@@ -786,7 +833,7 @@ export function createEpisodeViewer({
     },
     pushEpisode(trace) {
       if (!trace || !Array.isArray(trace.steps) || trace.steps.length === 0) return;
-      episodes = [...episodes.slice(-(VIEWER_MAX_EPISODES - 1)), trace];
+      episodes = [...episodes.slice(-(maxEpisodes - 1)), trace];
       selectedEpisodeIndex = episodes.length - 1;
       selectedStepIndex = 0;
       stopAutoplay();

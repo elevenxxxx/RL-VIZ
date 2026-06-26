@@ -7,10 +7,12 @@ const { createEpisodeViewer } = await import("../shared/episodeViewer.js");
 const { setStepRender } = await import("./steps.js");
 
 const MAZE_ACTION_LABELS = ["上", "下", "左", "右"];
+const MAZE_EPISODE_TRACE_INTERVAL = 5;
 const mazeEpisodeViewer = createEpisodeViewer({
   containerId: "episode-viewer-root-maze",
   title: "Single Episode RL Visualization",
   subtitle: "Replay one Maze Q-learning episode with path, policy scores, and reward decomposition.",
+  maxEpisodes: 50,
 });
 // export const config = {
 //   cols: 25,// 必须奇数
@@ -1113,22 +1115,28 @@ async function trainEpisode(episodeId = 0) {
   console.log(record);
   if (!config.stop) {
     records.push(record);
-    mazeEpisodeViewer.pushEpisode(createEpisodeTrace({
-      envType: "maze",
-      episode: episodeId,
-      totalReward,
-      totalSteps: episodeSteps.length,
-      summary: {
-        outcome: done ? "success" : "truncated",
-        successLabel: done ? "Reached Goal" : "Stopped / Max Steps",
-      },
-      metadata: {
-        mazeGrid: grid.map((row) => row.map((cell) => cell.wall ? 1 : 0)),
-        start: { ...start },
-        goal: { ...goal },
-      },
-      steps: episodeSteps,
-    }));
+    const shouldStoreEpisodeTrace =
+      (episodeId === 0) ||
+      ((episodeId + 1) % MAZE_EPISODE_TRACE_INTERVAL === 0) ||
+      (episodeId + 1 === config.trainEpisodes);
+    if (shouldStoreEpisodeTrace) {
+      mazeEpisodeViewer.pushEpisode(createEpisodeTrace({
+        envType: "maze",
+        episode: episodeId,
+        totalReward,
+        totalSteps: episodeSteps.length,
+        summary: {
+          outcome: done ? "success" : "truncated",
+          successLabel: done ? "Reached Goal" : "Stopped / Max Steps",
+        },
+        metadata: {
+          mazeGrid: grid.map((row) => row.map((cell) => cell.wall ? 1 : 0)),
+          start: { ...start },
+          goal: { ...goal },
+        },
+        steps: episodeSteps,
+      }));
+    }
     drawlineGraph(records, {
       title: "Maze Q-learning Diagnostics",
       subtitle: "Track reward, path length, exploration, and whether Q-values are still changing.",
