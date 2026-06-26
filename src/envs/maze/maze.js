@@ -1,17 +1,6 @@
 const p5Module = await import("https://cdn.jsdelivr.net/npm/p5@1.9.0/+esm");
 const p5 = p5Module.default;
-const { drawlineGraph } = await import("../chess/graph.js");
-const { createTrainingRecord } = await import("../shared/trainingDiagnostics.js");
-const { createEpisodeTrace, createEpisodeStepRecord } = await import("../shared/episodeTrace.js");
-const { createEpisodeViewer } = await import("../shared/episodeViewer.js");
-
-const MAZE_ACTION_LABELS = ["上", "下", "左", "右"];
-const mazeEpisodeViewer = createEpisodeViewer({
-  containerId: "episode-viewer-root-maze",
-  title: "Single Episode RL Visualization",
-  subtitle: "Replay one Maze Q-learning episode with path, policy scores, and reward decomposition.",
-});
-
+const { setStepRender } = await import("./steps.js");
 // export const config = {
 //   cols: 25,// 必须奇数
 //   rows: 25,
@@ -37,7 +26,7 @@ const initConfig = {
 
   renderTrain: true,
   renderSpeed: 10,
-  stepMode: false,
+  stepMode: true,
   stop: false,
 
   trainEpisodes: 300,
@@ -49,6 +38,9 @@ const initConfig = {
   alpha: 0.1,//学习率
   gamma: 0.95,//折扣因子 对未来奖励的影响程度
   epsilon: 0.1,//探索率
+
+  now_train_step: 0,
+  now_test_step: 0,
 
   draw_maze: true,
   draw_heatmap: true,
@@ -69,6 +61,9 @@ export const config = new Proxy(structuredClone(initConfig), {
     // 触发UI更新
     if (key === "currentEpisode") {
       notify("currentEpisode", value);
+    }
+    if (key === "stepMode") {
+      notify("stepMode", value);
     }
 
     return true;
@@ -236,7 +231,7 @@ function drawTooltip(p) {
   }
 
   tooltip.innerHTML = html;
-  tooltip.style.left = p.mouseX + 12 + "px";
+  tooltip.style.left = p.mouseX + 130 + "px";
   tooltip.style.top = p.mouseY + 12 + "px";
   tooltip.style.display = "block";
 }
@@ -616,6 +611,7 @@ function rc2stateId(x, y) {
   return `${x},${y}`;
 }
 function stateId2rc(stateId) {
+  //console.log("stateId", stateId);
   const [x, y] = stateId.split(",");
   return { x, y };
 }
@@ -693,7 +689,7 @@ function getMazePolicySnapshot(s, selectedAction) {
 function chooseAction(s) {
   const q = getQ(s);
 
-  if (Math.random() < config.epsilon) {
+  if (!isTest && Math.random() < config.epsilon) {
     return Math.floor(Math.random() * 4);
   }
 
@@ -731,19 +727,26 @@ function updateQ(s, a, r, s2) {
 
   document.getElementById(`q_sa`).textContent = `Q(${qsrc.x}-${qsrc.y},a)`;
   document.getElementById(`q_s2a2`).textContent = `Q(${qs2rc.x}-${qs2rc.y},a')`;
+
   for (let i = 0; i < 4; i++) {
     let Qcolor1 = "#68716D";
     if (s in Qactive && Qactive[s] == i) {
       Qcolor1 = "#6E8B74";
     }
-    let Qcolor2 = "#68716D";
-    if (s2 in Qactive && Qactive[s2] == i) {
-      Qcolor2 = "#6E8B74";
-    }
+
     document.getElementById(`q_sa_${i}`).textContent = q[i].toFixed(3);
     document.getElementById(`q_sa_${i}`).style.color = Qcolor1;
-    document.getElementById(`q_s2a_${i}`).textContent = q2[i].toFixed(3);
-    document.getElementById(`q_s2a_${i}`).style.color = Qcolor2;
+
+    const el2 = document.getElementById(`q_s2a_${i}`);
+    el2.textContent = q2[i].toFixed(3);
+
+    if (q2[i] === maxNext) {
+      el2.style.color = "#eb5454";   // 高亮色
+      el2.style.fontWeight = "bold";
+    } else {
+      el2.style.color = "#e6e6e6";
+      el2.style.fontWeight = "normal";
+    }
   }
 
   return {
@@ -812,6 +815,70 @@ const sketch = (p) => {
   };
   return p;
 };
+const stepRenderV = {
+  a: -1,
+  s2: -1,
+  reward: -1,
+  d: 0,
+}
+function ResetAgentinfo() {
+  const new_Agentinfo = structuredClone(init_Agentinfo);
+  Object.keys(new_Agentinfo).forEach(k => {
+    Agentinfo[k] = new_Agentinfo[k];
+  });
+  config.now_train_step = 0;
+  config.now_test_step = 0;
+}
+export async function stepRender() {
+  const RunStepFunctions = {
+    0: RunStep0,
+    1: RunStep1,
+    2: RunStep2
+  };
+  if (config.stepMode) {
+    RunStepFunctions[config.now_train_step]();
+    await setStepRender("train", config.now_train_step);
+    config.now_train_step++
+  }
+  else {
+    config.isTest = true;
+    RunStepFunctions[config.now_test_step]();
+    config.isTest = false;
+    await setStepRender("test", config.now_test_step);
+    config.now_test_step++
+  }
+
+  if (config.now_train_step > 2) {
+    //ResetAgentinfo();
+    config.now_train_step = 0;
+  }
+  if (config.now_test_step > 1) {
+    //ResetAgentinfo();
+    config.now_test_step = 0;
+  }
+
+  function RunStep0() {
+    console.log("RunStep0", Agentinfo);
+    const s = rc2stateId(agent.x, agent.y);
+    Agentinfo.Qagent_s = s;
+    Agentinfo.Qagent_a = chooseAction(s);
+  }
+  function RunStep1() {
+    console.log("RunStep1", Agentinfo);
+    const res = step(Agentinfo.Qagent_a);
+    Agentinfo.Qagent_qs = res.s2;
+    Agentinfo.Qagent_r = res.reward;
+    if (res.done) {
+      alert("到达终点");
+    }
+
+  }
+  function RunStep2() {
+    console.log("RunStep2", Agentinfo);
+    updateQ(Agentinfo.Qagent_s, Agentinfo.Qagent_a, Agentinfo.Qagent_r, Agentinfo.Qagent_qs);
+  }
+}
+
 export function SingleStep() {
   const s = rc2stateId(agent.x, agent.y);
   const a = chooseAction(s);
@@ -1081,6 +1148,7 @@ export async function train() {
     movingAverageWindow: 20,
   });
   alert("训练完成");
+  reset();
 }
 export async function test() {
   reset();
@@ -1104,6 +1172,7 @@ export async function test() {
   }
   isTest = false
   alert("测试完成,总步数：" + stepCount + ",是否到达终点：" + done);
+  reset();
 }
 //刷新整个界面
 export function fresh() {
@@ -1146,12 +1215,12 @@ export function resetAgent() {
   edgeWeight = {};
   mazeEpisodeViewer.clear();
 
-  const new_Agentinfo = structuredClone(init_Agentinfo);
-  Object.keys(new_Agentinfo).forEach(k => {
-    Agentinfo[k] = new_Agentinfo[k];
-  });
+  ResetAgentinfo();
 
   initQTable();
+
+  document.getElementById("cfgQValue").value = formatQTable(Q);
+  document.getElementById("cfgQValue").style.display = "none";
 }
 
 
@@ -1166,10 +1235,7 @@ export function reset() {
     dir: null,
   };
 
-  const new_Agentinfo = structuredClone(init_Agentinfo);
-  Object.keys(new_Agentinfo).forEach(k => {
-    Agentinfo[k] = new_Agentinfo[k];
-  });
+  ResetAgentinfo();
 
   config.stop = false;
   resetVis();
@@ -1181,9 +1247,42 @@ export function resetVis() {
   hoverStartTime = 0;
   isTest = false
   Qactive = {}
+  config.now_train_step = 0;
+  config.now_test_step = 0;
+}
+function formatQTable(Q) {
+  const cols = ["0", "1", "2", "3"];
+
+  // 收集所有 state key
+  const states = Object.keys(Q)
+    .map(k => k.split(",").map(Number))
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+  let out = "";
+
+  // 表头
+  out += "  Q   " + cols.map(c => c.padEnd(8)).join("") + "\n";
+
+  for (let [x, y] of states) {
+    const key = `${x},${y}`;
+    const q = Q[key] || [0, 0, 0, 0];
+
+    let row = `${key}  `;
+
+    for (let i = 0; i < 4; i++) {
+      row += q[i].toFixed(2).padEnd(8);
+    }
+
+    out += row + "\n";
+  }
+
+  return out;
 }
 export function debug() {
-  console.log(Q);
+  console.log("Q:", Q);
+  //document.getElementById("cfgQValue").value = JSON.stringify(Q, null, 2);
+  document.getElementById("cfgQValue").value = formatQTable(Q);
+  document.getElementById("cfgQValue").style.display = "block";
 }
 
 export function stopTrain() {
@@ -1195,6 +1294,8 @@ export function restore() {
   Object.keys(new_config).forEach(k => {
     config[k] = new_config[k];
   });
+
+  document.getElementById("cfgQValue").style.display = "none";
   alert("已恢复初始配置");
 }
 export function applyConfig() {
@@ -1217,6 +1318,13 @@ export function applyConfig() {
     config.draw_current_path = e.target.checked
     config.draw_paths = e.target.checked
   }
+
+  get("cfgShowMarkers").onchange = (e) => {
+    config.draw_policy = e.target.checked
+  }
+
+  get("cfgShowHeatmap").onchange = (e) =>
+    (config.draw_heatmap = e.target.checked);
 
   get("cfgEpisodes").oninput = (e) =>
     (config.trainEpisodes = +e.target.value);

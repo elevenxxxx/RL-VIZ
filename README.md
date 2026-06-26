@@ -1,13 +1,23 @@
 # RL-VIZ
 
-Reinforcement Learning Visualization Project
-
-## Description
-
-A visualization tool for reinforcement learning algorithms.
+An Attempt at Reinforcement Learning Visualization
 
 ## Features
 
-- Interactive visualization of RL environments
-- Frozen Lake environment demo
+- chinese chess:PPO(Pending)
+- simple maze:Q-learning
+
+## Installation
+
+```powershell
+npm install
+```
+
+## Run 
+```powershell
+npm run dev
+# or
+npx vite
+```
+
 

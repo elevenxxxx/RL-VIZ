@@ -20,6 +20,34 @@
             padding: 24px;
         }
 
+        #cfgQValue {
+            position: absolute;
+            right: 230px;
+            top: 10px;
+            width: 320px;
+            height: 300px;
+            overflow-y: auto;
+        }
+
+        #cfgQValue::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #cfgQValue::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        #cfgQValue::-webkit-scrollbar-thumb {
+            background: #89ccf4 rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        #cfgQValue {
+            scrollbar-width: thin;
+            scrollbar-color: #89ccf4 rgba(255, 255, 255, 0.05);
+        }
+
         #show {
             flex: 1;
             display: flex;
@@ -45,25 +73,13 @@
 
         #game {
             min-height: 800px;
-            padding: 80px 20px 24px;
-            display: grid;
-            grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+            padding: 80px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
             align-items: center;
             flex: 1;
-            position: relative;
-            border-radius: 24px;
-            background: rgba(255, 255, 255, 0.52);
-            border: 1px solid rgba(60, 70, 60, 0.06);
-            overflow: auto;
-        }
 
-        #game canvas {
-            grid-column: 2;
-            justify-self: center;
-            max-width: 100%;
-            width: auto !important;
-            height: auto !important;
-            display: block;
         }
 
         #maze_tooltip {
@@ -74,11 +90,20 @@
             border-radius: 12px;
             pointer-events: none;
             display: none;
-            max-width: 400px;
+            max-width: 450px;
             max-height: 300px;
             z-index: 999;
-            border: 1px solid rgba(60, 70, 60, 0.08);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+
+            word-wrap: break-word;
+            /* 允许长单词换行 */
+            word-break: break-word;
+            /* 在任意位置断行 */
+            white-space: normal;
+            /* 正常换行（默认值） */
+            overflow-y: auto;
+            /* 内容超出时显示滚动条 */
+            line-height: 1.5;
+            /* 行高，提升可读性 */
         }
 
         #controls {
@@ -110,8 +135,7 @@
 
         #maze_explainer_text {
             width: 70%;
-            font-size: 20px;
-            color: var(--ink-text-soft);
+            font-size: 22px;
         }
 
         #QTable {
@@ -148,11 +172,12 @@
 
         .maze_v {
             position: absolute;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.88);
-            color: var(--jade);
-            width: 80px;
-            border-radius: 14px;
+
+            background: rgba(20, 20, 30, 0.85);
+            color: #9ecbff;
+            width: 180px;
+
+            border-radius: 10px;
             padding: 6px;
             font-size: 16px;
             border: 1px solid rgba(60, 70, 60, 0.08);
@@ -164,18 +189,22 @@
 
         #cfgQagent_s {
             top: 300px;
+            left: 10px;
         }
 
         #cfgQagent_a {
             top: 340px;
+            left: 10px;
         }
 
         #cfgQagent_r {
             top: 380px;
+            left: 10px;
         }
 
         #cfgQagent_qs {
             top: 420px;
+            left: 10px;
         }
 
         #QTable table {
@@ -212,129 +241,106 @@
             width: 100%;
         }
 
-        .step-container {
-            margin: 12px 0;
-            padding: 12px;
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.78);
-            border: 1px solid rgba(60, 70, 60, 0.08);
-        }
-
-        .step-title {
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: var(--ink-text);
-        }
-
-        .step-flow {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .step-node {
-            position: relative;
-            padding: 8px 12px;
-            margin: 6px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.9);
-            color: var(--ink-text-muted);
-            font-size: 13px;
-            transition: 0.3s;
-            border: 1px solid rgba(60, 70, 60, 0.08);
-        }
-
-        .step-node.active {
-            background: rgba(95, 158, 160, 0.14);
-            color: var(--jade);
-            transform: scale(1.05);
-        }
-
-        .step-node::after {
-            content: "";
+        #maze_steps {
             position: absolute;
-            top: 50%;
-            right: -18px;
-            width: 18px;
-            height: 2px;
-            background: repeating-linear-gradient(90deg,
-                    rgba(104, 113, 109, 0.45) 0px,
-                    rgba(104, 113, 109, 0.45) 4px,
-                    transparent 4px,
-                    transparent 8px);
-            animation: flow 0.8s linear infinite;
+            bottom: 150px;
+            right: 230px;
+
+            /* z-index: 999; */
+
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+
+            display: flex;
+            justify-content: center;
+            font-size: 24px;
         }
 
-        .step-node:last-child::after {
-            display: none;
-        }
+        .step-container {
+            position: relative;
+            padding: 12px 14px;
+            border-radius: 12px;
 
-        .flow {
-            margin: 12px 0;
-            padding: 12px;
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.78);
-            border: 1px solid rgba(60, 70, 60, 0.08);
+            background: rgba(20, 22, 30, 0.75);
+            border: 1px solid rgba(120, 160, 255, 0.15);
+
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.35);
+            font-size: 24px;
         }
 
         .flow-title {
-            color: var(--ink-text);
-            font-weight: bold;
-            margin-bottom: 10px;
+            color: #cfe3ff;
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 14px;
+            letter-spacing: 0.5px;
         }
 
-        .flow-row {
+        /* ===== 主线 ===== */
+        .flow-column {
             display: flex;
-            align-items: center;
-            flex-wrap: wrap;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 18px;
         }
 
         .flow-node {
             position: relative;
+
             padding: 8px 12px;
-            margin-right: 28px;
-            border-radius: 12px;
-            font-size: 13px;
-            color: var(--ink-text-muted);
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(60, 70, 60, 0.08);
-            transition: 0.3s;
+            border-radius: 10px;
+
+            font-size: 20px;
+            color: #e4edf4;
+
+            border: 1px solid rgba(255, 255, 255, 0.06);
+
+            transition: all 0.25s ease;
+
+            cursor: pointer;
+            width: 90%;
+        }
+
+        .flow-node:hover {
+            transform: translateX(4px) scale(1.02);
+            color: #66ea7a;
+            border-color: rgba(120, 170, 255, 0.35);
         }
 
         .flow-node.active {
-            color: var(--jade);
-            background: rgba(95, 158, 160, 0.14);
-            box-shadow: 0 8px 18px rgba(95, 158, 160, 0.12);
-            transform: scale(1.05);
+            color: #66ea7a;
+
+            box-shadow: 0 0 14px rgba(76, 139, 245, 0.5);
         }
 
         .flow-node.done {
-            color: var(--ink-text);
-            background: rgba(95, 158, 160, 0.08);
+            color: #66ea7a;
+
         }
 
         .flow-node::after {
-            content: ">>>>>";
-
+            content: "↓ ↓ ↓";
             position: absolute;
-            right: -30px;
-            top: 50%;
-            transform: translateY(-50%);
 
-            font-size: 12px;
-            letter-spacing: 2px;
-            color: rgba(104, 113, 109, 0.22);
+            left: 50%;
+            bottom: -18px;
+
+            transform: translateX(-50%);
+
+            font-size: 20px;
+            color: rgba(255, 255, 255, 0.25);
         }
 
         .flow-node.active::after {
-            color: var(--jade);
-            animation: flowMove 0.8s linear infinite;
+            color: #66ea7a;
+            animation: flowDown 0.8s linear infinite;
         }
 
-        @keyframes flowMove {
+
+        @keyframes flowDown {
             0% {
                 opacity: 0.2;
-                transform: translateY(-50%) translateX(0);
+                transform: translateX(-50%) translateY(0);
             }
 
             50% {
@@ -343,7 +349,7 @@
 
             100% {
                 opacity: 0.2;
-                transform: translateY(-50%) translateX(6px);
+                transform: translateX(-50%) translateY(6px);
             }
         }
 
@@ -420,23 +426,27 @@
             </div>
             <table id="QTable"></table>
             <span id="maze_formula"></span>
-            <span class="maze_v" id="cfgQagent_s">s: 0,0</span>
-            <span class="maze_v" id="cfgQagent_a">a: 0</span>
-            <span class="maze_v" id="cfgQagent_r">r: 0</span>
-            <span class="maze_v" id="cfgQagent_qs">s': 0,0</span>
+            <span class="maze_v" id="cfgQagent_s">s(当前状态): 0,0</span>
+            <span class="maze_v" id="cfgQagent_a">a(当前动作): 0</span>
+            <span class="maze_v" id="cfgQagent_r">r(即时奖励): 0</span>
+            <span class="maze_v" id="cfgQagent_qs">s'(下一状态): 0,0</span>
+            <textarea class="maze_v" id="cfgQValue"></textarea>
             <span id="maze_tooltip"></span>
-
+            <div id="maze_steps">
+                <div id="maze_Steps" class="step-container"></div>
+            </div>
         </div>
 
         <div id="controls">
-            <button id="resetBtn">重置所有</button>
-            <button id="resetAgentBtn">重置智能体</button>
-            <button id="fresh">刷新页面/刷新地图</button>
+            <button id="resetBtn">复位智能体</button>
+            <button id="resetAgentBtn">清空智能体</button>
+            <button id="fresh">刷新页面</button>
 
             <button id="trainBtn">训练</button>
             <button id="stepTrainBtn">训练一轮</button>
-            <button id="stopBtn">停止训练</button>
+            <button id="stopBtn">中止训练</button>
             <button id="stepBtn">下一步</button>
+            <button id="stepRenderBtn">分阶段步进</button>
             <button id="testBtn">测试</button>
 
             <button id="debugBtn">打印Q表</button>
@@ -460,6 +470,21 @@
             <div class="cfgRow">
                 <label>显示路径</label>
                 <input type="checkbox" id="cfgShowPath" />
+            </div>
+
+            <div class="cfgRow">
+                <label>显示格子深度</label>
+                <input type="checkbox" id="cfgShowHeatmap" />
+            </div>
+
+            <div class="cfgRow">
+                <label>显示标记</label>
+                <input type="checkbox" id="cfgShowMarkers" />
+            </div>
+
+            <div class="cfgRow">
+                <label>显示调试信息</label>
+                <input type="checkbox" id="cfgConsole" />
             </div>
 
             <div class="cfgRow">
@@ -512,10 +537,7 @@
 
     </div>
     <div id="maze_explainer">
-        <div id="maze_steps">
-            <div id="maze_trainSteps" class="step-container"></div>
-            <div id="maze_testSteps" class="step-container"></div>
-        </div>
+
         <div id="maze_explainer_text">
 
         </div>
@@ -528,9 +550,9 @@
     <script type="module">
         import {
             reset, train, test, SingleStep, debug, resetAgent, fresh, applyConfig, stepTrainEpisode, config, stopTrain,
-            restore, watch
+            restore, watch, stepRender
         } from "/src/envs/maze/maze.js";
-        import { setStep } from "/src/envs/maze/steps.js";
+        import { trainStepsInfo, testStepsInfo, initFlow, trainSteps, testSteps } from "/src/envs/maze/steps.js";
 
         document.getElementById('resetBtn').addEventListener('click', reset);
         document.getElementById('trainBtn').addEventListener('click', train);
@@ -541,8 +563,11 @@
         document.getElementById('resetAgentBtn').addEventListener('click', resetAgent);
         document.getElementById('fresh').addEventListener('click', fresh);
         document.getElementById('stepTrainBtn').addEventListener('click', stepTrainEpisode);
+        document.getElementById('stepRenderBtn').addEventListener('click', stepRender);
         document.getElementById('stopBtn').addEventListener('click', stopTrain);
         document.getElementById('restoreBtn').addEventListener('click', restore);
+
+        document.getElementById('cfgConsole').addEventListener('change', ConsoleUpdate);
 
         const episodeEl = document.getElementById("currentEpisode");
 
@@ -551,6 +576,8 @@
             document.getElementById('cfgStepMode').checked = config.stepMode;
             document.getElementById('cfgHighRender').checked = config.high_render;
             document.getElementById('cfgShowPath').checked = config.draw_current_path || config.draw_paths;
+            document.getElementById('cfgShowMarkers').checked = config.draw_policy;
+            document.getElementById('cfgShowHeatmap').checked = config.draw_heatmap;
             document.getElementById('cfgEpisodes').value = config.trainEpisodes;
             document.getElementById('cfgMaxSteps').value = config.maxSteps;
             document.getElementById('cfgRenderSpeed').value = config.renderSpeed;
@@ -560,23 +587,73 @@
             document.getElementById('cfgGamma').value = config.gamma;
             document.getElementById('cfgEpsilon').value = config.epsilon;
             document.getElementById("currentEpisode").textContent = `episode: ${config.currentEpisode}`;
+            document.getElementById('cfgConsole').checked = false;
+            ConsoleUpdate();
+            ///refreshSteps();
+            initFlow(config.stepMode ? "train" : "test");
         }
 
         watch("currentEpisode", (val) => {
             episodeEl.textContent = `episode: ${val}`;
         });
+        watch("stepMode", (val) => {
+            initFlow(val ? "train" : "test");
+            return;
+            console.log("stepMode", val);
+            if (val) {
+                let flow_nodes = document.querySelectorAll(".flow_node");
+                for (let i = 0; i < flow_nodes.length; i++) {
+                    flow_nodes[i].textContent = trainSteps[i];
+                }
+
+                // flow_nodes[2].style.display = "block";
+            } else {
+                let flow_nodes = document.querySelectorAll(".flow-node");
+                for (let i = 0; i < flow_nodes.length; i++) {
+                    flow_nodes[i].textContent = testSteps[i];
+                }
+                if (flow_nodes[2]) {
+                    flow_nodes[2].style.display = "none";
+                }
+            }
+        });
         watch("Qagent_s", (val) => {
-            document.getElementById("cfgQagent_s").textContent = `s: ${val}`;
+            document.getElementById("cfgQagent_s").textContent = `s(当前状态): ${val}`;
         });
         watch("Qagent_a", (val) => {
-            document.getElementById("cfgQagent_a").textContent = `a: ${val}`;
+            document.getElementById("cfgQagent_a").textContent = `a(当前动作): ${val}`;
         });
         watch("Qagent_r", (val) => {
-            document.getElementById("cfgQagent_r").textContent = `r: ${val.toFixed(3)}`;
+            document.getElementById("cfgQagent_r").textContent = `r(即时奖励): ${val.toFixed(3)}`;
         });
         watch("Qagent_qs", (val) => {
-            document.getElementById("cfgQagent_qs").textContent = `s': ${val}`;
+            document.getElementById("cfgQagent_qs").textContent = `s'(下一状态): ${val}`;
         });
+
+        function ConsoleUpdate() {
+            let is_show = document.getElementById("cfgConsole").checked;
+            if (is_show) {
+                document.getElementById("cfgQagent_s").style.display = "block";
+                document.getElementById("cfgQagent_a").style.display = "block";
+                document.getElementById("cfgQagent_r").style.display = "block";
+                document.getElementById("cfgQagent_qs").style.display = "block";
+                document.getElementById("QTable").style.display = "block";
+                //document.getElementById("cfgQValue").style.display = "block";
+                document.getElementById("maze_formula").style.display = "flex";
+                document.getElementById("maze_steps").style.display = "flex";
+            } else {
+                document.getElementById("cfgQagent_s").style.display = "none";
+                document.getElementById("cfgQagent_a").style.display = "none";
+                document.getElementById("cfgQagent_r").style.display = "none";
+                document.getElementById("cfgQagent_qs").style.display = "none";
+                document.getElementById("QTable").style.display = "none";
+                document.getElementById("cfgQValue").style.display = "none";
+                document.getElementById("maze_formula").style.display = "none";
+                document.getElementById("maze_steps").style.display = "none";
+            }
+        }
+
+        const tooltip = document.getElementById("maze_tooltip");
 
         updateViewConfig();
         applyConfig();
@@ -584,152 +661,130 @@
         const explainerEl = document.getElementById("maze_explainer_text");
         const formulaEl = document.getElementById("maze_formula");
         formulaEl.innerHTML = `
-    $$Q(s, a)=Q(s, a)\\alpha \\Big[ r + \\gamma \\max_{a'} Q(s', a') - Q(s, a) \\Big]$$
+    $$Q(s, a)=Q(s, a)+\\alpha \\Big[ r + \\gamma \\max_{a'} Q(s', a') - Q(s, a) \\Big]$$
 `;
 
         explainerEl.innerHTML = `
-  <h2>Q-Learning 强化学习算法</h2>
+  <h2>Q-Learning </h2>
 
   <p>
-    Q-Learning 是一种经典的 <b>无模型（Model-Free）强化学习算法</b>，
+    Q-Learning 是一种经典的 <b>无模型强化学习算法</b>，
     属于 <b>时序差分学习（Temporal Difference Learning）</b>，
-    通过学习 <b>状态-动作价值函数 Q(s, a)</b> 来寻找最优策略。
+    通过在每一步与环境交互中逐步学习、寻找最优策略。</b>
+    常用于迷宫、棋类游戏等场景。
   </p>
 
-  <h3>一、算法核心思想</h3>
+  <h3>核心更新公式</h3>
 
   <p>
-    在环境中，智能体通过不断与环境交互：
+   $$Q(s, a) = Q(s, a) + \\alpha \\Big[ r + \\gamma \\max_{a'} Q(s', a') - Q(s, a) \\Big]$$
   </p>
-
-  <ul>
-    <li>观察当前状态 \\( s \\)</li>
-    <li>选择动作 \\( a \\)</li>
-    <li>获得奖励 \\( r \\)</li>
-    <li>转移到新状态 \\( s' \\)</li>
-  </ul>
-
-  <p>
-    并通过不断更新 Q 值，使得长期回报最大化。
-  </p>
-
-  <h3>二、Q-learning 更新公式</h3>
-
-  <p>
-   $$Q(s, a) \\leftarrow Q(s, a) + \\alpha \\Big[ r + \\gamma \\max_{a'} Q(s', a') - Q(s, a) \\Big]$$
-  </p>
-
-  <h3>三、参数解释</h3>
+  <p>其中：</p>
 
   <ul>
     <li><b>Q(s, a)</b>：状态-动作价值函数</li>
-    <li><b>\\(\\alpha\\)</b>：学习率（learning rate）</li>
-    <li><b>\\(\\gamma\\)</b>：折扣因子（discount factor）</li>
+    <li><b>\\(\\alpha\\)</b>：学习率</li>
+    <li><b>\\(\\gamma\\)</b>：折扣因子</li>
     <li><b>r</b>：即时奖励</li>
     <li><b>\\(s'\\)</b>：下一状态</li>
-    <li><b>\\(\\max_{a'} Q(s', a')\\)</b>：下一状态的最优预期收益</li>
   </ul>
 
-  <h3>四、算法特征</h3>
+  <h3>算法特点</h3>
 
   <ul>
-    <li>✔ 无需环境模型（Model-Free）</li>
-    <li>✔ 离线/在线均可学习</li>
-    <li>✔ 收敛到最优策略（在满足条件下）</li>
-    <li>✔ 适用于离散状态空间</li>
-    <li>⚠ 不适合超大/连续状态空间（需要 DQN）</li>
+    <li> 无需环境模型</li>
+    <li> 离线/在线均可学习(主要用于在线学习环境)</li>
+    <li> 适用于离散状态空间、不适合过大或者连续状态的情景</li>
   </ul>
 
-  <h3>五、适用场景</h3>
+  <h3>算法流程</h3>
 
-  <ul>
-    <li>迷宫路径搜索（当前项目）</li>
-    <li>棋类游戏策略学习</li>
-    <li>简单控制问题（GridWorld）</li>
-  </ul>
-
-  <hr />
-
-  <h2>在当前 Maze 环境中的训练流程</h2>
-
-  <h3>阶段一：初始化</h3>
+  <h4>初始化</h4>
 
   <ol>
-    <li>初始化 Q 表 \\( Q(s, a) = 0 \\)</li>
-    <li>设定学习率 \\( \\alpha \\)、折扣因子 \\( \\gamma \\)</li>
-    <li>设定探索率 \\( \\epsilon \\)（epsilon-greedy）</li>
-    <li>重置环境（reset agent position）</li>
+    <li>初始化 Q 表 \\( Q(s, a) = 0 \\) 和环境</li>
+    <li>设定学习率 \\( \\alpha \\)、折扣因子 \\( \\gamma \\)、探索率 \\( \\epsilon \\)（epsilon-greedy）</li>
   </ol>
 
-  <h3>阶段二：训练过程（Episode Loop）</h3>
+  <h4>训练</h4>
 
   <ol>
-    <li>获取当前状态 \\( s \\)</li>
 
     <li>
-      <b>ε-greedy 选择动作：</b><br/>
+      <b>使用 ε-greedy 策略选择动作：</b><br/>
       - 以 \\( \\epsilon \\) 概率随机选择动作（探索）<br/>
       - 以 \\( 1 - \\epsilon \\) 概率选择
       \\( \\arg\\max_a Q(s, a) \\)（利用）
     </li>
 
-    <li>执行动作 \\( a \\)，进入新状态 \\( s' \\)</li>
-
-    <li>获得奖励 \\( r \\)</li>
+    <li>智能体执行动作 \\( a \\)，进入新状态 \\( s' \\)，获得奖励 \\( r \\)</li>
 
     <li>
-      计算 TD 目标：
+    更新 Q 值：
       $$
-      target = r + \\gamma \\max_{a'} Q(s', a')
-      $$
-    </li>
-
-    <li>
-      更新 Q 值：
-      $$
-      Q(s, a) \\leftarrow Q(s, a) + \\alpha (target - Q(s, a))
+      Q(s, a) = Q(s, a) + \\alpha (r + \\gamma \\max_{a'} Q(s', a') - Q(s, a))
       $$
     </li>
 
     <li>重复直到 episode 结束</li>
   </ol>
 
-  <h3>阶段三：策略收敛</h3>
-
-  <ul>
-    <li>\\( \\epsilon \\) 逐渐衰减（例如 0.1 → 0.01）</li>
-    <li>Q 值逐渐稳定</li>
-    <li>路径趋向最优解</li>
-  </ul>
-
-  <h3>阶段四：测试阶段（Test Mode）</h3>
+  <h4>测试</h4>
 
   <ol>
-    <li>关闭探索：\\( \\epsilon = 0 \\)</li>
-    <li>始终选择 \\( \\arg\\max_a Q(s, a) \\)</li>
-    <li>智能体按最优策略执行</li>
-    <li>不再更新 Q 表</li>
+    <li>始终选择 \\( \\arg\\max_a Q(s, a) \\)/设定\\( \\epsilon = 0 \\)（一般都这么做，但也可以不关）</li>
+    <li>智能体执行动作 \\( a \\)，进入新状态 \\( s' \\)，获得奖励 \\( r \\)，不更新 Q 表</li>
   </ol>
 
-  <h3>测试阶段策略行为</h3>
 
-  <p>
-    在测试模式中，智能体完全依赖已学习策略：
-  </p>
-
-  <p>
-    $$
-    a = \\arg\\max_a Q(s, a)
-    $$
-  </p>
 `;
 
         window.MathJax.typesetPromise();
 
-        setStep("train", 0);
-        setStep("train", 1);
-        setStep("test", 0);
+        function refreshSteps() {
+            const flow_nodes = document.querySelectorAll(".flow-node");
+            if (config.stepMode) {
+                for (let i = 0; i < flow_nodes.length; i++) {
+                    flow_nodes[i].textContent = node.dataset.index;
+                    tooltip.innerHTML = trainStepsInfo[i];
+                    flow_nodes[i].style.display = "block";
+                }
+            } else {
+                for (let i = 0; i < flow_nodes.length; i++) {
+                    flow_nodes[i].textContent = node.dataset.index;
+                    tooltip.innerHTML = testStepsInfo[i];
+                    if (i > testSteps.length - 1) {
+                        flow_nodes[i].style.display = "none";
+                    }
+                    else {
+                        flow_nodes[i].style.display = "block";
+                    }
+                }
 
+            }
+        }
+
+        document.addEventListener("mousemove", async (e) => {
+            const node = e.target.closest(".flow-node");
+            if (!node) {
+                tooltip.style.display = "none";
+                return;
+            }
+
+            if (config.stepMode) {
+                //node.textContent = node.dataset.index;
+                tooltip.innerHTML = trainStepsInfo[node.dataset.index];
+            } else {
+                //node.textContent = node.dataset.index;
+                tooltip.innerHTML = testStepsInfo[node.dataset.index];
+            }
+
+            tooltip.style.left = (e.pageX - 150) + "px";
+            tooltip.style.top = (e.pageY - 50) + "px";
+
+            tooltip.style.display = "block";
+            MathJax.typesetPromise([tooltip]);//渲染数学公式
+        });
     </script>
 
 </body>
